@@ -50,14 +50,14 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
     @Validate(name: "name", .isNotEmpty(message: "Required"), .minLength(3))
     var name: String = ""
 
-    var validates: [ValidateAccessor<Self>] { [.init(\_name)] }
+    var validates: [ValidateAccessor<Self>] { [.init(\._name)] }
 
     @MainActor
     func submit() async throws -> Plan { /* … */ }
 }
 ```
 
-Note `\_name` — key path to the *wrapper*, not the value. That's what `ValidateAccessor.init` takes.
+Note `\._name` — key path to the *wrapper*, not the value. That's what `ValidateAccessor.init` takes. The leading dot is required by Swift 6 when the root type is inferred from context (e.g. `[.init(...)]`).
 
 ## Concurrency model — read this before touching isolation
 

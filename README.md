@@ -7,7 +7,7 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
     @Validate(name: "name", .isNotEmpty(message: "Required"), .minLength(3))
     var name: String = ""
 
-    var validates: [ValidateAccessor<Self>] { [.init(\_name)] }
+    var validates: [ValidateAccessor<Self>] { [.init(\._name)] }
 
     @MainActor
     func submit() async throws -> Plan { /* … */ }
@@ -75,7 +75,7 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
     var ownerEmail: String = ""
 
     var validates: [ValidateAccessor<Self>] {
-        [.init(\_name), .init(\_ownerEmail)]
+        [.init(\._name), .init(\._ownerEmail)]
     }
 
     @MainActor
@@ -243,9 +243,10 @@ struct SignupForm: ValidatableForm {
     @Validate(name: "password", .minLength(8))
     var password: String = ""
 
-    // Note: key path is to the wrapper (\_email), not the value (\.email)
+    // Note: key path is to the wrapper (\._email), not the value (\.email)
+    // Leading dot is required by Swift 6 when the root type is inferred from context.
     var validates: [ValidateAccessor<Self>] {
-        [.init(\_email), .init(\_password)]
+        [.init(\._email), .init(\._password)]
     }
 }
 

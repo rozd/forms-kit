@@ -26,12 +26,14 @@ public struct Validate<T: Equatable> {
     public var wrappedValue: T {
         get { value }
         set {
-            if newValue != value {
-                state = .editing
+            guard newValue != value else {
+                return
             }
             value = newValue
-            if case .invalid(_) = state {
+            if state.isValid || state.isInvalid {
                 validate()
+            } else {
+                state = .editing
             }
         }
     }
