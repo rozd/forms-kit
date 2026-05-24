@@ -27,7 +27,7 @@ jobs:
         run: |
           BIN=$(swift build --show-bin-path)
           xcrun llvm-cov export \
-            "$BIN/ThemeKitPackageTests.xctest/Contents/MacOS/ThemeKitPackageTests" \
+            "$BIN/FormsKitPackageTests.xctest/Contents/MacOS/FormsKitPackageTests" \
             -instr-profile "$(find .build -name default.profdata -type f)" \
             -format lcov > coverage.lcov
 
