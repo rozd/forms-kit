@@ -15,7 +15,7 @@ swift build
 swift test
 ```
 
-Package is `swift-tools-version: 6.3`, Swift 6 language mode, platforms iOS 17 / macOS 14 / tvOS 17 / watchOS 10. No dependencies. Don't add any.
+Package is `swift-tools-version: 6.3`, Swift 6 language mode, platforms iOS 17 / macOS 14 / tvOS 17 / watchOS 10 / visionOS 1. No dependencies. Don't add any.
 
 ## Source layout
 

@@ -1,4 +1,9 @@
 # FormsKit
+[![Platforms](https://img.shields.io/badge/Platforms-iOS_|_macOS_|_watchOS_|_tvOS_|_visionOS-blue.svg)](https://developer.apple.com/xcode/)
+[![Swift 6.3](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
+[![Release](https://img.shields.io/github/v/release/rozd/forms-kit)](https://github.com/rozd/forms-kit/releases)
+[![codecov](https://codecov.io/gh/rozd/forms-kit/branch/main/graph/badge.svg)](https://codecov.io/gh/rozd/forms-kit)
+[![License](https://img.shields.io/github/license/rozd/forms-kit)](LICENSE)
 
 A small, opinionated **SwiftUI form-validation library** built for modern Swift: `@Observable`, Swift 6 concurrency, zero dependencies.
 
@@ -36,7 +41,7 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
 ## Requirements
 
 - Swift 6.0+ (built with tools 6.3, language mode v6)
-- iOS 17 / macOS 14 / tvOS 17 / watchOS 10
+- iOS 17 / macOS 14 / tvOS 17 / watchOS 10 / visionOS 1
 - Xcode 16+
 
 ## Installation
