@@ -19,23 +19,12 @@ public struct FormToolbarViewModifier<T: ValidatableForm & SubmittableForm>: Vie
         content
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button(cancelTitle) {
-                        if preventsAccidentalDismiss && controller.isDirty {
-                            showsDiscardWarning = true
-                        } else {
-                            dismiss()
-                        }
-                    }
+                    Button(cancelTitle, action: cancelTapped)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button(submitTitle) {
-                        controller.validate()
-                        if controller.form.isValid {
-                            onSubmit()
-                        }
-                    }
-                    .bold()
-                    .disabled(!controller.isDirty || controller.isLoading)
+                    Button(submitTitle, action: submitTapped)
+                        .bold()
+                        .disabled(!controller.isDirty || controller.isLoading)
                 }
             }
             .interactiveDismissDisabled(preventsAccidentalDismiss && controller.isDirty)
@@ -45,6 +34,21 @@ public struct FormToolbarViewModifier<T: ValidatableForm & SubmittableForm>: Vie
             } message: {
                 Text("You have unsaved changes. Are you sure you want to discard them?")
             }
+    }
+
+    func cancelTapped() {
+        if preventsAccidentalDismiss && controller.isDirty {
+            showsDiscardWarning = true
+        } else {
+            dismiss()
+        }
+    }
+
+    func submitTapped() {
+        controller.validate()
+        if controller.form.isValid {
+            onSubmit()
+        }
     }
 }
 

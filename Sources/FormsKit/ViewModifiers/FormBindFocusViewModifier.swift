@@ -9,9 +9,7 @@ public struct FormBindFocusViewModifier<T>: ViewModifier {
     public func body(content: Content) -> some View {
         content
             .onChange(of: focus.wrappedValue) { _, new in
-                if controller.focus != new {
-                    controller.focus = new
-                }
+                Self.syncControllerFocus(controller, to: new)
             }
             .onChange(of: controller.focus) { _, new in
                 guard focus.wrappedValue != new else { return }
@@ -19,6 +17,15 @@ public struct FormBindFocusViewModifier<T>: ViewModifier {
                     focus.wrappedValue = new
                 }
             }
+    }
+
+    static func syncControllerFocus(
+        _ controller: FormController<T>,
+        to new: PartialKeyPath<T>?
+    ) {
+        if controller.focus != new {
+            controller.focus = new
+        }
     }
 }
 
