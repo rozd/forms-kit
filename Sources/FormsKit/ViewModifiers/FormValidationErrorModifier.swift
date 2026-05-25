@@ -1,14 +1,14 @@
 import SwiftUI
 
-public struct ValidatorViewModifier<T: Equatable>: ViewModifier {
+public struct FormValidationErrorModifier<T: Equatable>: ViewModifier {
 
-    let state: Validate<T>.State
+    let state: Validated<T>.State
 
     let alignment: HorizontalAlignment
     let spacing: CGFloat?
 
     init(
-        state: Validate<T>.State,
+        state: Validated<T>.State,
         alignment: HorizontalAlignment = .leading,
         spacing: CGFloat? = 4
     ) {
@@ -35,13 +35,13 @@ public struct ValidatorViewModifier<T: Equatable>: ViewModifier {
 
 public extension View {
 
-    func validator<T: Equatable>(
-        state: Validate<T>.State,
+    func formValidationError<T: Equatable>(
+        for state: Validated<T>.State,
         alignment: HorizontalAlignment = .leading,
         spacing: CGFloat? = 4
     ) -> some View {
         modifier(
-            ValidatorViewModifier<T>(
+            FormValidationErrorModifier<T>(
                 state: state,
                 alignment: alignment,
                 spacing: spacing

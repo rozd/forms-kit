@@ -12,6 +12,10 @@ public final class FormController<T> {
 
     public var form: T
 
+    public var focus: PartialKeyPath<T>? = nil
+
+    public var shouldFocusFirstInvalidFieldOnSubmit: Bool = true
+
     private(set) var state: State = .initial
 
     public init(form: T) {
@@ -24,8 +28,8 @@ public final class FormController<T> {
 extension FormController where T: ValidatableForm {
 
     var isDirty: Bool {
-        for accessor in form.validates {
-            if accessor.isDirty(form) {
+        for field in form.validatedFields {
+            if field.isDirty(form) {
                 return true
             }
         }
@@ -37,8 +41,15 @@ extension FormController where T: ValidatableForm {
     }
 
     func validate() {
-        for accessor in form.validates {
-            let _ = accessor.validate(&form)
+        for field in form.validatedFields {
+            let _ = field.validate(&form)
+        }
+    }
+
+    public func focusFirstInvalidField() {
+        for field in form.validatedFields where !field.isValid(form) {
+            focus = field.keyPath
+            return
         }
     }
 
@@ -58,6 +69,9 @@ public extension FormController where T: SubmittableForm, T: ValidatableForm {
     func submit() async throws -> T.Output {
         self.validate()
         if !form.isValid {
+            if shouldFocusFirstInvalidFieldOnSubmit {
+                focusFirstInvalidField()
+            }
             throw ValidationError.invalid(errors: form.validationErrors)
         }
         state = .loading
@@ -70,11 +84,14 @@ public extension FormController where T: SubmittableForm, T: ValidatableForm {
             guard case .invalid(let errors) = (error as? ValidationError) else {
                 throw error
             }
-            for accessor in form.validates {
+            for accessor in form.validatedFields {
                 if let property = accessor.name(form),
                    let messages = errors[property] {
                     accessor.markAsInvalid(&form, messages)
                 }
+            }
+            if shouldFocusFirstInvalidFieldOnSubmit {
+                focusFirstInvalidField()
             }
             throw error
         }

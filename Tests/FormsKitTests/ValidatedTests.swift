@@ -20,14 +20,14 @@ private struct AlwaysFail<V: Equatable>: ValidationRule {
     func validate(value: V) -> String? { message }
 }
 
-// MARK: - @Validate state machine
+// MARK: - @Validated state machine
 
-@Suite("Validate state machine")
-struct ValidateStateTests {
+@Suite("Validated state machine")
+struct ValidatedStateTests {
 
     @Test("Newly initialized field is .idle when mode is .onChange")
     func startsIdleOnChange() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onChange,
@@ -41,7 +41,7 @@ struct ValidateStateTests {
 
     @Test("Newly initialized field is .idle when mode is .onSubmit")
     func startsIdleOnSubmit() {
-        let sut = Validate<String>(
+        let sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onSubmit,
@@ -54,7 +54,7 @@ struct ValidateStateTests {
 
     @Test("mode .always validates at init time and reports invalid")
     func alwaysValidatesAtInit() {
-        let sut = Validate<String>(
+        let sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .always,
@@ -66,7 +66,7 @@ struct ValidateStateTests {
 
     @Test("mode .always with passing rule validates at init time and reports valid")
     func alwaysValidatesAtInitValid() {
-        let sut = Validate<String>(
+        let sut = Validated<String>(
             wrappedValue: "hello",
             name: "x",
             mode: .always,
@@ -78,7 +78,7 @@ struct ValidateStateTests {
 
     @Test("Mutating wrappedValue to a different value transitions .idle to .editing")
     func mutationFromIdleGoesToEditing() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onChange,
@@ -93,7 +93,7 @@ struct ValidateStateTests {
 
     @Test("Mutating wrappedValue to the SAME value does not change state")
     func equalMutationIsNoop() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "hello",
             name: "x",
             mode: .onChange,
@@ -105,7 +105,7 @@ struct ValidateStateTests {
 
     @Test("Once invalid, each new value triggers re-validation on the new value (.onChange semantics)")
     func reValidatesAfterInvalid() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onChange,
@@ -130,7 +130,7 @@ struct ValidateStateTests {
 
     @Test("projectedValue exposes the current state")
     func projectedValueExposesState() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .always,
@@ -150,7 +150,7 @@ struct ValidateStateTests {
 
     @Test("validate() aggregates messages from multiple failing rules in order")
     func aggregatesMessages() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onSubmit,
@@ -164,7 +164,7 @@ struct ValidateStateTests {
 
     @Test("validate() returns true and clears errors when all rules pass")
     func validReturnsTrueAndClears() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "ok",
             name: "x",
             mode: .onSubmit,
@@ -178,7 +178,7 @@ struct ValidateStateTests {
 
     @Test("markAsInvalid sets the state to .invalid with supplied messages")
     func markAsInvalidApplies() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "ok",
             name: "x",
             mode: .onChange
@@ -190,7 +190,7 @@ struct ValidateStateTests {
 
     @Test("Mutating after a server-marked .invalid re-runs local rules on the new value")
     func mutationAfterMarkAsInvalidRevalidates() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "ok",
             name: "x",
             mode: .onChange,
@@ -204,14 +204,14 @@ struct ValidateStateTests {
     }
 }
 
-// MARK: - @Validate init overloads & ExpressibleByNilLiteral
+// MARK: - @Validated init overloads & ExpressibleByNilLiteral
 
-@Suite("Validate init overloads")
-struct ValidateInitTests {
+@Suite("Validated init overloads")
+struct ValidatedInitTests {
 
     @Test("Optional initializer (no wrappedValue) defaults to nil")
     func optionalNilDefault() {
-        let sut = Validate<String?>(
+        let sut = Validated<String?>(
             name: "nickname",
             mode: .onChange
         )
@@ -222,7 +222,7 @@ struct ValidateInitTests {
 
     @Test("Optional initializer respects mode .always and validates immediately")
     func optionalAlwaysValidates() {
-        let sut = Validate<String?>(
+        let sut = Validated<String?>(
             name: "nickname",
             mode: .always,
             AssertRule(message: "must be non-nil") { $0 != nil }
@@ -233,7 +233,7 @@ struct ValidateInitTests {
 
     @Test("Non-optional initializer carries wrappedValue and name")
     func nonOptionalInitCarriesValues() {
-        let sut = Validate<Int>(
+        let sut = Validated<Int>(
             wrappedValue: 42,
             name: "age",
             mode: .onChange
@@ -242,9 +242,9 @@ struct ValidateInitTests {
         #expect(sut.name == "age")
     }
 
-    @Test("Validate works for arbitrary Equatable value types, not just String")
+    @Test("Validated works for arbitrary Equatable value types, not just String")
     func nonStringValueTypes() {
-        var sut = Validate<Int>(
+        var sut = Validated<Int>(
             wrappedValue: 3,
             name: "n",
             mode: .onSubmit,
@@ -258,38 +258,38 @@ struct ValidateInitTests {
     }
 }
 
-// MARK: - Validate.State.isDirty / isValid / isInvalid
+// MARK: - Validated.State.isDirty / isValid / isInvalid
 
-@Suite("Validate.State helpers")
-struct ValidateStateHelpersTests {
+@Suite("Validated.State helpers")
+struct ValidatedStateHelpersTests {
 
     @Test("isDirty is false only for .idle")
     func isDirtyMatrix() {
-        #expect(Validate<String>.State.idle.isDirty == false)
-        #expect(Validate<String>.State.editing.isDirty == true)
-        #expect(Validate<String>.State.valid.isDirty == true)
-        #expect(Validate<String>.State.invalid(messages: ["x"]).isDirty == true)
+        #expect(Validated<String>.State.idle.isDirty == false)
+        #expect(Validated<String>.State.editing.isDirty == true)
+        #expect(Validated<String>.State.valid.isDirty == true)
+        #expect(Validated<String>.State.invalid(messages: ["x"]).isDirty == true)
     }
 
     @Test("isValid is true only for .valid")
     func isValidMatrix() {
-        #expect(Validate<String>.State.idle.isValid == false)
-        #expect(Validate<String>.State.editing.isValid == false)
-        #expect(Validate<String>.State.valid.isValid == true)
-        #expect(Validate<String>.State.invalid(messages: ["x"]).isValid == false)
+        #expect(Validated<String>.State.idle.isValid == false)
+        #expect(Validated<String>.State.editing.isValid == false)
+        #expect(Validated<String>.State.valid.isValid == true)
+        #expect(Validated<String>.State.invalid(messages: ["x"]).isValid == false)
     }
 
     @Test("isInvalid is true only for .invalid")
     func isInvalidMatrix() {
-        #expect(Validate<String>.State.idle.isInvalid == false)
-        #expect(Validate<String>.State.editing.isInvalid == false)
-        #expect(Validate<String>.State.valid.isInvalid == false)
-        #expect(Validate<String>.State.invalid(messages: ["x"]).isInvalid == true)
+        #expect(Validated<String>.State.idle.isInvalid == false)
+        #expect(Validated<String>.State.editing.isInvalid == false)
+        #expect(Validated<String>.State.valid.isInvalid == false)
+        #expect(Validated<String>.State.invalid(messages: ["x"]).isInvalid == true)
     }
 
     @Test("Wrapper's `isInvalid` / `isValid` / `isDirty` shortcuts mirror its state")
     func wrapperShortcuts() {
-        var sut = Validate<String>(
+        var sut = Validated<String>(
             wrappedValue: "",
             name: "x",
             mode: .onChange,

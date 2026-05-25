@@ -9,10 +9,12 @@ A small, opinionated **SwiftUI form-validation library** built for modern Swift:
 
 ```swift
 struct CreatePlanForm: ValidatableForm, SubmittableForm {
-    @Validate(name: "name", .isNotEmpty(message: "Required"), .minLength(3))
+    @Validated(name: "name", .isNotEmpty(message: "Required"), .minLength(3))
     var name: String = ""
 
-    var validates: [ValidateAccessor<Self>] { [.init(\._name)] }
+    var validatedFields: [ValidatedField<Self>] {
+        [.init(\.name, wrappedBy: \._name)]
+    }
 
     @MainActor
     func submit() async throws -> Plan { /* … */ }
@@ -23,14 +25,15 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
 
 ## Features
 
-- 🎯 **`@Validate<T>` property wrapper** — declarative per-field validation for any `Equatable` value, not just `String`.
+- 🎯 **`@Validated<T>` property wrapper** — declarative per-field validation for any `Equatable` value, not just `String`.
 - 🧩 **Composable typed rules** — chain multiple rules per field; each rule is a plain value type.
 - 🔁 **Validation modes** — `.always`, `.onChange` (default), `.onSubmit`. Errors auto-clear as the user fixes them.
 - 📋 **Form protocols** — `ValidatableForm`, `SubmittableForm`, `PopulatableForm` model a form as a value type.
 - 🎛️ **`FormController<T>`** — `@Observable` controller with a submission state machine (`initial` / `loading` / `success` / `failure`).
-- 🛰️ **Server-error remap** — throw `ValidationError.invalid(errors:)` from `submit()` and per-field errors flow back onto the corresponding `@Validate` fields automatically.
+- 🎯 **Focus management** — programmatic `controller.focus`, key-path-driven field traversal, automatic focus on the first invalid field after submission failure.
+- 🛰️ **Server-error remap** — throw `ValidationError.invalid(errors:)` from `submit()` and per-field errors flow back onto the corresponding `@Validated` fields automatically.
 - 🧰 **Built-in string rules** — `isNotEmpty`, `minLength`, `maxLength`, `pattern`, `email`.
-- 🎨 **SwiftUI modifiers** — `.validator(state:)` for inline field errors, `.formToolbar(...)` for a Cancel/Submit toolbar.
+- 🎨 **SwiftUI modifiers** — `.formValidationError(for:)` for inline field errors, `.formToolbar(...)` for a Cancel/Submit toolbar, `.focused(on:equals:)` and `.formBindFocus(_:on:)` for focus traversal.
 - 🛡️ **Dirty-state-aware dismiss** — discard confirmation dialog + `interactiveDismissDisabled` when the form has unsaved changes.
 - 🪶 **Zero dependencies** — Foundation + SwiftUI + Observation. No Combine, no third-party packages.
 - ⚡ **`@Observable` native** — built for iOS 17+ / Swift 5.9+ macros, not `ObservableObject`.
@@ -73,14 +76,15 @@ import SwiftUI
 import FormsKit
 
 struct CreatePlanForm: ValidatableForm, SubmittableForm {
-    @Validate(name: "name", .isNotEmpty(message: "Name is required"), .minLength(3))
+    @Validated(name: "name", .isNotEmpty(message: "Name is required"), .minLength(3))
     var name: String = ""
 
-    @Validate(name: "email", .email())
+    @Validated(name: "email", .email())
     var ownerEmail: String = ""
 
-    var validates: [ValidateAccessor<Self>] {
-        [.init(\._name), .init(\._ownerEmail)]
+    var validatedFields: [ValidatedField<Self>] {
+        [.init(\.name, wrappedBy: \._name),
+         .init(\.ownerEmail, wrappedBy: \._ownerEmail)]
     }
 
     @MainActor
@@ -97,10 +101,12 @@ struct CreatePlanSheet: View {
         NavigationStack {
             Form {
                 TextField("Name", text: $controller.form.name)
-                    .validator(state: controller.form.$name)
+                    .focused(on: $controller, equals: \.name)
+                    .formValidationError(for: controller.form.$name)
 
                 TextField("Owner email", text: $controller.form.ownerEmail)
-                    .validator(state: controller.form.$ownerEmail)
+                    .focused(on: $controller, equals: \.ownerEmail)
+                    .formValidationError(for: controller.form.$ownerEmail)
             }
             .navigationTitle("New Plan")
             .formToolbar(controller: controller) {
@@ -122,15 +128,15 @@ struct CreatePlanSheet: View {
 
 ## Validation
 
-### `@Validate<T>` property wrapper
+### `@Validated<T>` property wrapper
 
-Wraps any `Equatable` value and tracks its validation state. The projected value (`$field`) exposes a `Validate.State` you can drive UI from.
+Wraps any `Equatable` value and tracks its validation state. The projected value (`$field`) exposes a `Validated.State` you can drive UI from.
 
 <details>
 <summary>Basic usage</summary>
 
 ```swift
-@Validate(name: "age", .init(/* rules */)) var age: Int = 18
+@Validated(name: "age", .init(/* rules */)) var age: Int = 18
 
 // Read state from the projected value
 switch $age {
@@ -148,15 +154,15 @@ case .invalid(let messages): // failed; messages contains all rule failures
 
 ```swift
 // .onChange (default) — stays quiet until invalid, then re-validates on each keystroke
-@Validate(name: "name", .isNotEmpty(message: "Required"))
+@Validated(name: "name", .isNotEmpty(message: "Required"))
 var name: String = ""
 
 // .always — validates immediately at init time
-@Validate(name: "tos", mode: .always, .isTrue(message: "Must accept"))
+@Validated(name: "tos", mode: .always, .isTrue(message: "Must accept"))
 var acceptedTOS: Bool = false
 
 // .onSubmit — only validates when the form is submitted
-@Validate(name: "bio", mode: .onSubmit, .maxLength(500))
+@Validated(name: "bio", mode: .onSubmit, .maxLength(500))
 var bio: String = ""
 ```
 
@@ -167,7 +173,7 @@ var bio: String = ""
 
 ```swift
 // A second initializer exists for ExpressibleByNilLiteral types — no `= nil` needed
-@Validate(name: "nickname") var nickname: String?
+@Validated(name: "nickname") var nickname: String?
 ```
 
 </details>
@@ -180,12 +186,12 @@ Implement the `ValidationRule` protocol — typed over the value the rule valida
 <summary>Built-in string rules</summary>
 
 ```swift
-@Validate(name: "email",
+@Validated(name: "email",
     .isNotEmpty(message: "Required"),
     .email(message: "Invalid email"))
 var email: String = ""
 
-@Validate(name: "password",
+@Validated(name: "password",
     .minLength(8, message: "At least 8 characters"),
     .maxLength(64),
     .pattern(#"[A-Z]"#, message: "Must contain an uppercase letter"))
@@ -221,7 +227,7 @@ public extension ValidationRule where Self == DivisibleBy {
 }
 
 // Use it
-@Validate(name: "quantity", .divisibleBy(5, message: "Must be a multiple of 5"))
+@Validated(name: "quantity", .divisibleBy(5, message: "Must be a multiple of 5"))
 var quantity: Int = 0
 ```
 
@@ -231,33 +237,36 @@ var quantity: Int = 0
 
 ## Forms
 
-A form is a **struct** of `@Validate`-wrapped fields that conforms to one or more of these protocols.
+A form is a **struct** of `@Validated`-wrapped fields that conforms to one or more of these protocols.
 
 ### `ValidatableForm`
 
-Declares which fields participate in validation via a `validates` array of key-path-driven accessors.
+Declares which fields participate in validation via a `validatedFields` array of key-path-driven schema entries.
 
 <details>
 <summary>Example</summary>
 
 ```swift
 struct SignupForm: ValidatableForm {
-    @Validate(name: "email", .isNotEmpty(message: "Required"), .email())
+    @Validated(name: "email", .isNotEmpty(message: "Required"), .email())
     var email: String = ""
 
-    @Validate(name: "password", .minLength(8))
+    @Validated(name: "password", .minLength(8))
     var password: String = ""
 
-    // Note: key path is to the wrapper (\._email), not the value (\.email)
-    // Leading dot is required by Swift 6 when the root type is inferred from context.
-    var validates: [ValidateAccessor<Self>] {
-        [.init(\._email), .init(\._password)]
+    // First arg is the value key path (\.email); `wrappedBy:` carries the
+    // wrapper key path (\._email). Leading dot is required by Swift 6 when the
+    // root type is inferred from context. Using the value path here makes
+    // \.email writable as a focus identifier from any view file.
+    var validatedFields: [ValidatedField<Self>] {
+        [.init(\.email, wrappedBy: \._email),
+         .init(\.password, wrappedBy: \._password)]
     }
 }
 
 // Free helpers from the protocol extension:
 form.isValid          // Bool
-form.validationErrors // [String: [String]] keyed by Validate.name
+form.validationErrors // [String: [String]] keyed by Validated.name
 ```
 
 </details>
@@ -344,7 +353,7 @@ Task {
 
 ### Server-side error remap
 
-When `submit()` throws `ValidationError.invalid(errors:)`, the controller maps each per-field error onto the matching `@Validate` field by `name`. The next render shows them inline automatically.
+When `submit()` throws `ValidationError.invalid(errors:)`, the controller maps each per-field error onto the matching `@Validated` field by `name`. The next render shows them inline automatically.
 
 <details>
 <summary>Example</summary>
@@ -364,6 +373,20 @@ func submit() async throws -> User {
 
 </details>
 
+### Focus management
+
+The controller exposes a key-path-driven focus property: `focus: PartialKeyPath<T>?`. Setting it programmatically moves keyboard focus to the matching field; SwiftUI focus changes flow back into it via the focus view modifiers (see [`.focused(on:equals:)`](#focusedonequals) and [`.formBindFocus(_:on:)`](#formbindfocus_on)).
+
+`controller.focus` is freely mutable from MainActor — useful for "focus on appear," "focus after server-side correction," or scroll-to-error overlays that observe it.
+
+**Auto-focus on submit failure** is on by default. When `submit()` produces validation errors (either pre-flight or from server-side remap), the controller calls `focusFirstInvalidField()`, which sets `focus` to the first invalid field's key path. Disable with:
+
+```swift
+controller.shouldFocusFirstInvalidFieldOnSubmit = false
+```
+
+You can also call `focusFirstInvalidField()` manually, or set `controller.focus = \.fieldName` directly. Any `KeyPath<Form, V>` works as a focus identifier — including non-validated fields — but only validated fields participate in `focusFirstInvalidField()`.
+
 ### Convenience accessors
 
 <details>
@@ -372,9 +395,12 @@ func submit() async throws -> User {
 ```swift
 controller.form        // T (the form struct)
 controller.state       // .initial / .loading / .success / .failure
+controller.focus       // PartialKeyPath<T>? — currently focused field
 controller.isDirty     // any field has been edited
 controller.isValid     // all fields are .valid
 controller.isLoading   // state == .loading
+controller.shouldFocusFirstInvalidFieldOnSubmit  // Bool, default true
+controller.focusFirstInvalidField()              // move focus to first invalid field
 controller.validate()  // runs all rules; mutates field states
 try await controller.submit()
 ```
@@ -385,7 +411,7 @@ try await controller.submit()
 
 ## SwiftUI modifiers
 
-### `.validator(state:)`
+### `.formValidationError(for:)`
 
 Renders error messages under a field when the wrapper is `.invalid`.
 
@@ -394,11 +420,11 @@ Renders error messages under a field when the wrapper is `.invalid`.
 
 ```swift
 TextField("Email", text: $controller.form.email)
-    .validator(state: controller.form.$email)
+    .formValidationError(for: controller.form.$email)
 
 // Optional layout overrides
 TextField("Bio", text: $controller.form.bio)
-    .validator(state: controller.form.$bio, alignment: .leading, spacing: 6)
+    .formValidationError(for: controller.form.$bio, alignment: .leading, spacing: 6)
 ```
 
 </details>
@@ -434,6 +460,64 @@ Submit is auto-disabled when `!isDirty || isLoading`. Cancel triggers a confirma
 
 </details>
 
+### `.focused(on:equals:)`
+
+Zero-ceremony focus binding. The modifier internally owns a hidden `@FocusState<Bool>` and bidirectionally syncs it with `controller.focus`. No `@FocusState` declaration on the view, no separate bridging modifier.
+
+<details>
+<summary>Example</summary>
+
+```swift
+struct CreatePlanView: View {
+    @State private var controller = FormController(form: CreatePlanForm())
+
+    var body: some View {
+        Form {
+            TextField("Name", text: $controller.form.name)
+                .focused(on: $controller, equals: \.name)
+                .formValidationError(for: controller.form.$name)
+
+            TextField("Description", text: $controller.form.description)
+                .focused(on: $controller, equals: \.description)
+        }
+    }
+}
+```
+
+Use value key paths (`\.name`), not wrapper key paths (`\._name`) — they're universally accessible across view files. Any `KeyPath<Form, V>` works as a focus identifier; non-validated focusable fields are first-class.
+
+</details>
+
+### `.formBindFocus(_:on:)`
+
+Shared `@FocusState` binding. Use this when you need the `@FocusState` for something else in the same view (e.g., a non-form search field, or a scroll-to-error overlay observing `focus.wrappedValue`).
+
+<details>
+<summary>Example</summary>
+
+```swift
+struct CreatePlanView: View {
+    @State private var controller = FormController(form: CreatePlanForm())
+    @FocusState private var focus: PartialKeyPath<CreatePlanForm>?
+
+    var body: some View {
+        Form {
+            TextField("Name", text: $controller.form.name)
+                .focused($focus, equals: \.name)
+                .formValidationError(for: controller.form.$name)
+
+            TextField("Description", text: $controller.form.description)
+                .focused($focus, equals: \.description)
+        }
+        .formBindFocus($focus, on: controller)
+    }
+}
+```
+
+The bridge is bidirectional — writes to `$focus` flow into `controller.focus`, and programmatic writes to `controller.focus` flow back into `$focus`. The two focus modifiers (`.focused(on:equals:)` and `.formBindFocus(_:on:)`) can be mixed on different fields in the same form.
+
+</details>
+
 ---
 
 ## Concurrency
@@ -446,7 +530,7 @@ FormsKit has a deliberate isolation shape:
 | `SubmittableForm.submit()` | `@MainActor` |
 | `PopulatableForm.populate(from:)` | `@MainActor` |
 | `ValidatableForm` | unconstrained |
-| `Validate<T>`, `ValidationRule`, accessors, rules | unconstrained (value types) |
+| `Validated<T>`, `ValidationRule`, `ValidatedField`, rules | unconstrained (value types) |
 
 <details>
 <summary>Why <code>submit()</code> is <code>@MainActor</code> (and why that's fine)</summary>
@@ -460,7 +544,7 @@ The benefit: the form (`T`) never crosses an isolation boundary, so consumers do
 <details>
 <summary>Why <code>ValidatableForm</code> is not <code>Sendable</code></summary>
 
-It's intentional. Making the protocol `Sendable` would force the constraint through every layer (`T`, each `ValidationRule`, the closures inside `ValidateAccessor`) for a capability the design doesn't use — forms don't cross actor boundaries in normal flows. If you need to load form data off-MainActor, use `PopulatableForm`: load a `Sendable` `Data` value off-MainActor, then call `populate(from:)` on MainActor.
+It's intentional. Making the protocol `Sendable` would force the constraint through every layer (`T`, each `ValidationRule`, the closures inside `ValidatedField`) for a capability the design doesn't use — forms don't cross actor boundaries in normal flows. If you need to load form data off-MainActor, use `PopulatableForm`: load a `Sendable` `Data` value off-MainActor, then call `populate(from:)` on MainActor.
 
 </details>
 
@@ -468,15 +552,15 @@ It's intentional. Making the protocol `Sendable` would force the constraint thro
 
 ## What this package is *not*
 
-- A UI kit — only two modifiers, intentionally minimal styling.
+- A UI kit — four modifiers total, intentionally minimal styling.
 - A binding/navigation/router helper.
-- A general-purpose `Validated<E, A>` applicative type (cf. `pointfreeco/swift-validated`) — different abstraction.
+- A general-purpose `Validated<E, A>` applicative type (cf. `pointfreeco/swift-validated`) — different abstraction. FormsKit's `@Validated` is a property wrapper for per-field state; the pointfree type is an applicative result enum.
 - An `ObservableObject` library — iOS 17 / `@Observable` is the floor.
 
 ## Roadmap
 
 - Localized default error messages via `String(localized:bundle: .module)`.
-- Themeable error color on `ValidatorViewModifier` (currently hardcoded `.red`).
+- Themeable error color on `FormValidationErrorModifier` (currently hardcoded `.red`).
 - Localizable strings in `FormToolbarViewModifier` ("Discard Changes?", etc.).
 - Additional rule families (`Number`, `Date`, `Collection`).
 

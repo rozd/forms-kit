@@ -13,16 +13,17 @@ private struct TestForm: ValidatableForm, SubmittableForm {
         case serverFieldErrors([String: [String]])
     }
 
-    @Validate(name: "email", .isNotEmpty(message: "Required"), .email(message: "Invalid email"))
+    @Validated(name: "email", .isNotEmpty(message: "Required"), .email(message: "Invalid email"))
     var email: String = ""
 
-    @Validate(name: "password", .minLength(8, message: "At least 8"))
+    @Validated(name: "password", .minLength(8, message: "At least 8"))
     var password: String = ""
 
     var outcome: Outcome = .success("ok")
 
-    var validates: [ValidateAccessor<Self>] {
-        [.init(\._email), .init(\._password)]
+    var validatedFields: [ValidatedField<Self>] {
+        [.init(\.email, wrappedBy: \._email),
+         .init(\.password, wrappedBy: \._password)]
     }
 
     @MainActor
@@ -152,7 +153,7 @@ struct FormControllerSubmitTests {
         #expect((error as? DummyError) == DummyError(id: 7))
     }
 
-    @Test("Server-side ValidationError.invalid(errors:) is mapped back onto matching @Validate fields by name")
+    @Test("Server-side ValidationError.invalid(errors:) is mapped back onto matching @Validated fields by name")
     func serverErrorRemap() async {
         let controller = FormController(form: TestForm())
         controller.form.email = "user@example.com"
@@ -168,12 +169,11 @@ struct FormControllerSubmitTests {
 
         // After the throw, the matching fields should have been marked .invalid with the server messages.
         // Drive through the accessor API to verify (matches how the controller does it internally).
-        var snapshot = controller.form
-        let emailAccessor = snapshot.validates[0]
-        let passwordAccessor = snapshot.validates[1]
+        let snapshot = controller.form
+        let emailAccessor = snapshot.validatedFields[0]
+        let passwordAccessor = snapshot.validatedFields[1]
         #expect(emailAccessor.errors(snapshot) == ["Already taken"])
         #expect(passwordAccessor.errors(snapshot) == ["Weak password"])
-        _ = snapshot // silence warning
     }
 
     @Test("isLoading is true while submit() is suspended on its inner await")
@@ -185,9 +185,11 @@ struct FormControllerSubmitTests {
             var resume: (@Sendable () -> Void)?
         }
         struct GatedForm: ValidatableForm, SubmittableForm {
-            @Validate(name: "n", .isNotEmpty(message: "r"))
+            @Validated(name: "n", .isNotEmpty(message: "r"))
             var n: String = "x"
-            var validates: [ValidateAccessor<Self>] { [.init(\._n)] }
+            var validatedFields: [ValidatedField<Self>] {
+                [.init(\.n, wrappedBy: \._n)]
+            }
             let gate: Gate
 
             @MainActor
@@ -230,9 +232,8 @@ struct FormControllerSubmitTests {
             try await controller.submit()
         }
         // Email gets marked. Unknown is dropped without crash.
-        var snapshot = controller.form
-        let emailAccessor = snapshot.validates[0]
+        let snapshot = controller.form
+        let emailAccessor = snapshot.validatedFields[0]
         #expect(emailAccessor.errors(snapshot) == ["Bad"])
-        _ = snapshot
     }
 }

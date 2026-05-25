@@ -1,5 +1,5 @@
 @propertyWrapper
-public struct Validate<T: Equatable> {
+public struct Validated<T: Equatable> {
 
     public enum State {
         case idle
@@ -75,7 +75,7 @@ public struct Validate<T: Equatable> {
 
 // MARK: Validation
 
-extension Validate {
+extension Validated {
 
     @discardableResult
     mutating func validate() -> Bool {
@@ -98,7 +98,7 @@ extension Validate {
 
 // MARK: Marking Validation State
 
-extension Validate {
+extension Validated {
 
     mutating func markAsInvalid(messages: [String]) {
         state = .invalid(messages: messages)
@@ -107,7 +107,7 @@ extension Validate {
 
 // MARK: Validation State Shortcuts
 
-extension Validate {
+extension Validated {
 
     var isDirty: Bool {
         state.isDirty
@@ -134,7 +134,7 @@ extension Validate {
 
 // MARK: Validation State Extension
 
-extension Validate.State {
+extension Validated.State {
 
     var isDirty: Bool {
         switch self {
