@@ -557,6 +557,14 @@ It's intentional. Making the protocol `Sendable` would force the constraint thro
 - A general-purpose `Validated<E, A>` applicative type (cf. `pointfreeco/swift-validated`) — different abstraction. FormsKit's `@Validated` is a property wrapper for per-field state; the pointfree type is an applicative result enum.
 - An `ObservableObject` library — iOS 17 / `@Observable` is the floor.
 
+## Using FormsKit with an AI coding assistant
+
+FormsKit ships an **agent skill** at [`Skills/formskit-expert/`](Skills/formskit-expert/) that teaches an AI assistant how to build forms with this package — the protocols, the `@Validated` property wrapper, the `FormController` lifecycle, the focus modifiers, and the gotchas worth knowing before writing code. It works with any AI coding assistant; how you install it depends on the tool:
+
+- **Claude Code**: drop the bundled file at [`Skills/formskit-expert.skill`](Skills/formskit-expert.skill) into your skills config, or copy [`Skills/formskit-expert/`](Skills/formskit-expert/) into `~/.claude/skills/` to make it available across all projects.
+- **Cursor / Cline / Copilot / Codex / ChatGPT**: paste the contents of [`Skills/formskit-expert/SKILL.md`](Skills/formskit-expert/SKILL.md) into your agent's system prompt, rules file, or custom-instructions field. [`references/api-cheatsheet.md`](Skills/formskit-expert/references/api-cheatsheet.md) is a compact API reference you can attach as additional context.
+- **Other**: feed the markdown to whatever your agent reads at session start. The Skill is plain prose and is self-contained.
+
 ## Roadmap
 
 - Localized default error messages via `String(localized:bundle: .module)`.
