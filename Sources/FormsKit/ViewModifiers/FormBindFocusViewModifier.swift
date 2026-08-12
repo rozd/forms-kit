@@ -1,5 +1,6 @@
 import SwiftUI
 
+// SKIP @nobridge
 public struct FormBindFocusViewModifier<T>: ViewModifier {
 
     let focus: FocusState<PartialKeyPath<T>?>.Binding

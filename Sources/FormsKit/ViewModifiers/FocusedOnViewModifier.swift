@@ -1,12 +1,15 @@
 import SwiftUI
 
+// SKIP @nobridge
 public struct FocusedOnViewModifier<T, V>: ViewModifier {
 
     let controller: Binding<FormController<T>>
 
     let keyPath: KeyPath<T, V>
 
-    @FocusState private var isFocused: Bool
+    // internal (not private): Skip's Android bridge for SwiftUI types
+    // cannot reach private property-wrapper storage.
+    @FocusState var isFocused: Bool
 
     public func body(content: Content) -> some View {
         let myKeyPath: PartialKeyPath<T> = keyPath

@@ -1,9 +1,12 @@
 import SwiftUI
 
+// SKIP @nobridge
 public struct FormToolbarViewModifier<T: ValidatableForm & SubmittableForm>: ViewModifier {
-    @Environment(\.dismiss) private var dismiss
+    // internal (not private): Skip's Android bridge for SwiftUI types
+    // cannot reach private property-wrapper storage.
+    @Environment(\.dismiss) var dismiss
 
-    @State private var showsDiscardWarning: Bool = false
+    @State var showsDiscardWarning: Bool = false
 
     let controller: FormController<T>
 

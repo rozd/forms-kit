@@ -1,5 +1,6 @@
 import SwiftUI
 
+// SKIP @nobridge
 public struct FormValidationErrorModifier<T: Equatable>: ViewModifier {
 
     let state: Validated<T>.State

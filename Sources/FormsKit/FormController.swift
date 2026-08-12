@@ -1,4 +1,11 @@
 import Observation
+#if canImport(SkipFuse)
+// On Android (Skip Fuse), SkipFuse wires @Observable state tracking into
+// Compose so views re-render when the controller changes. On Apple
+// platforms the import is inert, and it disappears entirely when the
+// package is resolved with SKIP_ZERO=1.
+import SkipFuse
+#endif
 
 @MainActor
 @Observable

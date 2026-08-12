@@ -1,0 +1,3 @@
+# Skip (https://skip.dev) configuration for the FormsKitTests module.
+skip:
+  mode: 'native'

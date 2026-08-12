@@ -1,0 +1,13 @@
+# Skip (https://skip.dev) configuration for the FormsKit module.
+#
+# FormsKit is a natively-compiled Skip Fuse module: the Swift source is
+# compiled as-is for Android with the Swift SDK for Android, so the
+# @Validated property wrapper and the KeyPath-driven focus system work
+# unchanged (neither is expressible in Skip's transpiled mode).
+#
+# Bridging is intentionally not enabled: FormsKit is consumed from Swift
+# (SwiftUI) code only, and its generic, key-path-based API is not
+# representable in Kotlin anyway.
+skip:
+  mode: 'native'
+  bridging: false

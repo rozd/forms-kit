@@ -1,3 +1,9 @@
+// These tests drive the modifiers through real SwiftUI hosts
+// (ImageRenderer / NS-/UIHostingController), which don't exist on Android.
+// On Android (Skip Fuse) the modifiers are exercised by consumers' own UI
+// tests instead; the library's logic tests all run on both platforms.
+#if !os(Android)
+
 import Testing
 import SwiftUI
 @testable import FormsKit
@@ -10,7 +16,7 @@ import UIKit
 
 // MARK: - Fixtures
 
-private struct VMForm: ValidatableForm, SubmittableForm {
+struct VMForm: ValidatableForm, SubmittableForm {
     @Validated(name: "name", .isNotEmpty(message: "Required"))
     var name: String = ""
 
@@ -218,7 +224,7 @@ struct FormToolbarViewModifierTests {
 // MARK: - FormBindFocusViewModifier
 
 /// Hosts the modifier under a real SwiftUI runtime so its `onChange` handlers fire.
-private struct FormBindFocusHostView: View {
+struct FormBindFocusHostView: View {
     let controller: FormController<VMForm>
     @FocusState var focus: PartialKeyPath<VMForm>?
 
@@ -232,7 +238,7 @@ private struct FormBindFocusHostView: View {
 /// `onChange(of: focus.wrappedValue)` handler (focus → controller direction)
 /// gets exercised. The fields are real `TextField`s bound to the same
 /// `@FocusState` so SwiftUI can actually grant focus on the write.
-private struct FormBindFocusAppearHost: View {
+struct FormBindFocusAppearHost: View {
     let controller: FormController<VMForm>
     @FocusState var focus: PartialKeyPath<VMForm>?
     let appearAction: (FocusState<PartialKeyPath<VMForm>?>.Binding) -> Void
@@ -339,7 +345,7 @@ struct FormBindFocusViewModifierTests {
 
 /// `.focused(on:equals:)` owns its `@FocusState` internally and takes a
 /// `Binding<FormController<T>>`; the host materialises that binding via `@State`.
-private struct FocusedOnHostView: View {
+struct FocusedOnHostView: View {
     @State var controller: FormController<VMForm>
 
     var body: some View {
@@ -355,7 +361,7 @@ private struct FocusedOnHostView: View {
 /// inside `onAppear` causes SwiftUI to grant focus to the chosen field,
 /// which flips the modifier's internal `@FocusState` and exercises the
 /// `onChange(of: isFocused)` handler.
-private struct FocusedOnFocusableHost: View {
+struct FocusedOnFocusableHost: View {
     enum Scenario {
         case setInitial(PartialKeyPath<VMForm>)
         case setThenClear(PartialKeyPath<VMForm>)
@@ -535,3 +541,5 @@ private func _spin() async {
         await Task.yield()
     }
 }
+
+#endif
