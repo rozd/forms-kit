@@ -147,5 +147,6 @@ Sources/FormsKit/
 ├── Forms/{ValidatableForm,SubmittableForm,PopulatableForm}.swift
 ├── ValidationRules/StringValidationRule.swift
 ├── ValidationRules/StringValidationRules/*.swift
-└── ViewModifiers/{FormValidationErrorModifier,FormToolbarViewModifier,FocusedOnViewModifier,FormBindFocusViewModifier}.swift
+└── ViewModifiers/{FormValidationError,FormToolbarView,FocusedOnView,FormBindFocus}.swift
+Sources/FormsKitSwiftUI/FormsKitSwiftUI.swift   # internal shim for Skip bridge builds
 ```

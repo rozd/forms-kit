@@ -7,6 +7,7 @@ import Observation
 import SkipFuse
 #endif
 
+// SKIP @nobridge
 @MainActor
 @Observable
 public final class FormController<T> {
@@ -32,6 +33,7 @@ public final class FormController<T> {
 
 // MARK: Controller Extension for Validatable Forms
 
+// SKIP @nobridge
 extension FormController where T: ValidatableForm {
 
     var isDirty: Bool {
@@ -64,6 +66,7 @@ extension FormController where T: ValidatableForm {
 
 // MARK: Controller Extension for Submittable and Validatable Forms
 
+// SKIP @nobridge
 public extension FormController where T: SubmittableForm, T: ValidatableForm {
 
     var isLoading: Bool {

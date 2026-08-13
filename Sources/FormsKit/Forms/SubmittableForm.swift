@@ -1,3 +1,4 @@
+// SKIP @nobridge
 public protocol SubmittableForm {
     associatedtype Output
 

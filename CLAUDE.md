@@ -23,6 +23,9 @@ Android test runs need a Gradle JVM ≥ 21 (Robolectric / Android SDK 36 require
 ## Source layout
 
 ```
+Sources/FormsKitSwiftUI/
+├── Skip/skip.yml               # native mode, no bridging
+└── FormsKitSwiftUI.swift       # shim: re-exports SwiftUI, or SkipSwiftUI in bridge builds
 Sources/FormsKit/
 ├── Skip/
 │   └── skip.yml                # Skip config: native (Fuse) mode — see "Skip / Android support"
@@ -39,10 +42,10 @@ Sources/FormsKit/
 │   ├── StringValidationRule.swift          # protocol StringValidationRule
 │   └── StringValidationRules/              # concrete rules (NotEmpty, MinLength, …)
 └── ViewModifiers/
-    ├── FormValidationErrorModifier.swift   # .formValidationError(for:)
-    ├── FormToolbarViewModifier.swift       # .formToolbar(controller:onSubmit:)
-    ├── FormBindFocusViewModifier.swift     # .formBindFocus(_:on:)
-    └── FocusedOnViewModifier.swift         # .focused(on:equals:)
+    ├── FormValidationError.swift   # .formValidationError(for:) — direct composition, no struct
+    ├── FormToolbarView.swift       # .formToolbar(controller:onSubmit:) — bridged wrapper view
+    ├── FormBindFocus.swift         # .formBindFocus(_:on:) — direct composition + FormBindFocusSupport
+    └── FocusedOnView.swift         # .focused(on:equals:) — bridged wrapper view
 ```
 
 Keep one type per file. Group concrete rules under `ValidationRules/<Domain>ValidationRules/` (currently only `String`; add `Number`, `Date`, etc. the same way if needed). The three form-conformance protocols live in `Forms/`; everything else is a high-visibility public type and stays at root.
@@ -98,7 +101,7 @@ The library has a deliberate isolation shape; deviating from it will produce con
 - **Rules are value types.** A `ValidationRule` impl is a plain struct with a `validate(value:) -> String?` method. Add a static factory on `ValidationRule where Self == YourRule` for call-site sugar (`.minLength(3)` style). Mirror the existing `MinStringLengthValidationRule` pattern.
 - **Rule error messages are passed in.** Don't hardcode user-facing strings inside rules beyond English defaults; consumers localize at call site by passing `message:`. (Localizing the package's own defaults via `String(localized:bundle: .module)` is a future improvement — track it as such, not as a quiet refactor.)
 - **`@Validated` mode default is `.onChange`.** Means "stay quiet until the field becomes `.invalid`, then re-validate on each keystroke." Don't change the default; it's the UX consumers expect.
-- **View modifier UI is intentionally minimal.** `FormValidationErrorModifier` hardcodes `.red` and `.caption`; `FormToolbarViewModifier` hardcodes English button titles + a discard dialog. Making these themeable / localizable is on the roadmap but hasn't shipped — don't sneak it in piecemeal; do it as one deliberate change with a public API.
+- **View modifier UI is intentionally minimal.** `formValidationError` hardcodes `.red` and `.caption`; `FormToolbarView` hardcodes English button titles + a discard dialog. Making these themeable / localizable is on the roadmap but hasn't shipped — don't sneak it in piecemeal; do it as one deliberate change with a public API.
 - **View modifiers prefixed `form*` are package-original concepts; unprefixed ones (e.g. `.focused(on:equals:)`) deliberately overload existing SwiftUI vocabulary.** Don't prefix the overloads (it breaks discovery via SwiftUI muscle memory); do prefix new concepts (it groups the package's surface in autocomplete).
 
 ## Focus support
@@ -195,8 +198,11 @@ FormsKit ships as a Skip **Fuse (native) framework**: `Sources/FormsKit/Skip/ski
 
 Rules that keep the Android build green:
 
-- **`// SKIP @nobridge` on every public `View`/`ViewModifier` type.** Skip's test harness force-bridges the module's public API toward Kotlin, and skipstone 1.9.5's generated `ViewModifier` bridges don't compile (missing `SkipUI` imports, unlabeled `body` call). FormsKit is consumed from Swift only, so the Kotlin-facing bridge is unnecessary — keep it off. New public SwiftUI types get the same annotation.
-- **Property-wrapper storage in public SwiftUI types must be `internal`, not `private`.** Skip's bridge diagnostics reject private `@State`/`@Environment`/`@FocusState` storage inside bridged-adjacent types ("Private state property cannot be bridged"). This is why `dismiss`, `showsDiscardWarning`, and `isFocused` are internal.
+- **Never implement UI as a custom `ViewModifier`.** On Android, SkipSwiftUI's `View.modifier(_:)` ignores `body(content:)` entirely — it applies the modifier's `Java_modifier`, which defaults to `SkipUI.EmptyModifier()`. A custom `ViewModifier` therefore renders its content unchanged and silently drops everything else (this is how the toolbar/validation/focus modifiers shipped as no-ops before being caught on the emulator). The only escape — skipstone's generated `ViewModifier` bridge — doesn't compile in 1.9.5 (missing `SkipUI` imports, unlabeled `body` call). Express UI either as **direct composition in the `View` extension function** (stateless: `formValidationError`, `formBindFocus`) or as a **non-generic bridged wrapper `View`** (needs `@State`/`@FocusState`/`@Environment`: `FormToolbarView`, `FocusedOnView`).
+- **Wrapper views must be non-generic and bridged.** skip-bridge does not support generic types, so wrapper views erase their type parameters (`AnyView` content + closures over the controller, `AnyKeyPath` for focus identity) and must NOT carry `// SKIP @nobridge` — the generated Kotlin peer is exactly what makes them render on Android. `skip.yml` sets `bridging: true` for the same reason.
+- **View files import `FormsKitSwiftUI`, never `SwiftUI` directly.** The `FormsKitSwiftUI` shim target re-exports real SwiftUI, except in Skip bridge builds (`-DSKIP_BRIDGE`: the Android cross-compile and the Robolectric host build) where it re-exports SkipSwiftUI, whose `SkipUIBridging`/`SkipUI` machinery the generated bridges reference. The indirection is load-bearing: the bridge generator mirrors source-file imports verbatim into the generated `*_Bridge.swift` files and cannot evaluate `#if` conditions, so the conditional must live at module level in the shim, and the view files' import must stay a plain unconditional `import FormsKitSwiftUI`. `ViewModifierTests.swift` is guarded with `!SKIP_BRIDGE` in addition to `!os(Android)` (in bridge builds FormsKit's views are SkipSwiftUI-typed, so real-SwiftUI hosting doesn't apply). One sharp edge: switching between `SKIP_ZERO` and Skip-active builds in the same checkout can leave stale incremental state (`missing required module 'CJNI'`) — run `swift package clean` when that appears.
+- **Everything else public carries `// SKIP @nobridge`.** With `bridging: true`, skipstone tries to bridge the whole public API, and FormsKit's is unbridgeable by design: key paths (`ValidatedField`), generic types with constructors (`FormController`, `Validated`), and statics added via constrained extensions (the `.minLength(3)`-style rule factories) all hard-error in the generator. FormsKit is consumed from Swift only, so the Kotlin-facing surface is deliberately empty except the two wrapper views. A new public declaration gets `// SKIP @nobridge` unless it is a non-generic wrapper `View`.
+- **Property-wrapper storage in public SwiftUI types must be `internal`, not `private`.** Skip's bridge diagnostics reject private `@State`/`@Environment`/`@FocusState` storage inside bridged types ("Private state property cannot be bridged"). This is why `dismiss`, `showsDiscardWarning`, and `isFocused` are internal.
 - **`ViewModifierTests.swift` is wrapped in `#if !os(Android)`.** It hosts views via `ImageRenderer`/`NS-`/`UIHostingController`, which don't exist on Android. Logic tests (rules, `Validated`, controller, focus) run on both platforms — keep new UI-hosting tests inside that guard and new logic tests outside it.
 - **`FormController.swift` imports `SkipFuse` behind `#if canImport(SkipFuse)`.** On Android this wires `@Observable` change tracking into Compose; under `SKIP_ZERO` the module doesn't exist, hence the guard. Give any future `@Observable` type the same import.
 - **The `SKIP_ZERO` block in `Package.swift` is the no-dependency escape hatch** for Apple-only consumers. Preserve it when touching the manifest, and keep the Skip dependencies out of any code path it can't strip.

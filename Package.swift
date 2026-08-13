@@ -27,9 +27,27 @@ let package = Package(
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
+
+        // Internal shim: re-exports real SwiftUI, except in Skip bridge builds
+        // (-DSKIP_BRIDGE), where it re-exports SkipSwiftUI. FormsKit's view files
+        // import this module unconditionally so the skipstone bridge generator —
+        // which mirrors source-file imports verbatim and cannot evaluate `#if` —
+        // produces *_Bridge.swift files that compile in every build flavor.
+        .target(
+            name: "FormsKitSwiftUI",
+            dependencies: [
+                // SkipFuseUI (not the SkipSwiftUI product): depending on the
+                // dynamic SkipSwiftUI product alongside SkipFuseUI's static use
+                // of the same target is a SwiftPM linkage conflict; the
+                // SkipSwiftUI *module* is importable transitively.
+                .product(name: "SkipFuseUI", package: "skip-fuse-ui"),
+            ],
+            plugins: [.plugin(name: "skipstone", package: "skip")]
+        ),
         .target(
             name: "FormsKit",
             dependencies: [
+                "FormsKitSwiftUI",
                 .product(name: "SkipFuse", package: "skip-fuse"),
                 .product(name: "SkipFuseUI", package: "skip-fuse-ui"),
             ],

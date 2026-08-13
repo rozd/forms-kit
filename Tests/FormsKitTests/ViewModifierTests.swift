@@ -1,8 +1,11 @@
 // These tests drive the modifiers through real SwiftUI hosts
-// (ImageRenderer / NS-/UIHostingController), which don't exist on Android.
-// On Android (Skip Fuse) the modifiers are exercised by consumers' own UI
-// tests instead; the library's logic tests all run on both platforms.
-#if !os(Android)
+// (ImageRenderer / NS-/UIHostingController), which don't exist on Android —
+// and in bridge builds (SKIP_BRIDGE: the Android cross-compile and the
+// Robolectric host build) FormsKit's views are SkipSwiftUI-typed, so real
+// SwiftUI hosting doesn't apply there either. On Android (Skip Fuse) the
+// modifiers are exercised by consumers' own UI tests instead; the library's
+// logic tests all run on both platforms.
+#if !os(Android) && !SKIP_BRIDGE
 
 import Testing
 import SwiftUI
@@ -32,10 +35,10 @@ struct VMForm: ValidatableForm, SubmittableForm {
     func submit() async throws -> String { name }
 }
 
-// MARK: - FormValidationErrorModifier
+// MARK: - formValidationError
 
 @MainActor
-@Suite("FormValidationErrorModifier")
+@Suite("formValidationError")
 struct FormValidationErrorModifierTests {
 
     @Test("View extension `.formValidationError(for:)` builds a modified view — .idle branch")
@@ -81,10 +84,10 @@ struct FormValidationErrorModifierTests {
     }
 }
 
-// MARK: - FormToolbarViewModifier
+// MARK: - FormToolbarView
 
 @MainActor
-@Suite("FormToolbarViewModifier")
+@Suite("FormToolbarView")
 struct FormToolbarViewModifierTests {
 
     @Test("View extension `.formToolbar(...)` builds a modified view for a dirty form")
@@ -138,11 +141,14 @@ struct FormToolbarViewModifierTests {
     @Test("cancelTapped on a clean form invokes dismiss (no warning shown)")
     func cancelTappedCleanDismisses() {
         let controller = FormController(form: VMForm())
-        let modifier = FormToolbarViewModifier<VMForm>(
-            controller: controller,
+        let modifier = FormToolbarView(
+            content: AnyView(Text("body")),
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
+            isDirty: { controller.isDirty },
+            isLoading: { controller.isLoading },
+            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         // Form is clean → guard is false → falls through to dismiss().
@@ -154,11 +160,14 @@ struct FormToolbarViewModifierTests {
     func cancelTappedDirtyShowsWarning() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarViewModifier<VMForm>(
-            controller: controller,
+        let modifier = FormToolbarView(
+            content: AnyView(Text("body")),
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
+            isDirty: { controller.isDirty },
+            isLoading: { controller.isLoading },
+            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         modifier.cancelTapped()
@@ -171,11 +180,14 @@ struct FormToolbarViewModifierTests {
     func cancelTappedNoPreventDismissesWhenDirty() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarViewModifier<VMForm>(
-            controller: controller,
+        let modifier = FormToolbarView(
+            content: AnyView(Text("body")),
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: false,
+            isDirty: { controller.isDirty },
+            isLoading: { controller.isLoading },
+            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         // preventsAccidentalDismiss=false short-circuits the &&; falls to dismiss().
@@ -190,11 +202,14 @@ struct FormToolbarViewModifierTests {
         controller.form.name = "Alice"
         controller.form.email = "alice@example.com"
         var didSubmit = false
-        let modifier = FormToolbarViewModifier<VMForm>(
-            controller: controller,
+        let modifier = FormToolbarView(
+            content: AnyView(Text("body")),
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
+            isDirty: { controller.isDirty },
+            isLoading: { controller.isLoading },
+            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { didSubmit = true }
         )
         modifier.submitTapped()
@@ -207,11 +222,14 @@ struct FormToolbarViewModifierTests {
         let controller = FormController(form: VMForm())
         // Both fields empty → invalid after validate().
         var didSubmit = false
-        let modifier = FormToolbarViewModifier<VMForm>(
-            controller: controller,
+        let modifier = FormToolbarView(
+            content: AnyView(Text("body")),
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
+            isDirty: { controller.isDirty },
+            isLoading: { controller.isLoading },
+            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { didSubmit = true }
         )
         modifier.submitTapped()
@@ -261,7 +279,7 @@ struct FormBindFocusAppearHost: View {
 }
 
 @MainActor
-@Suite("FormBindFocusViewModifier", .serialized)
+@Suite("formBindFocus", .serialized)
 struct FormBindFocusViewModifierTests {
 
     @Test("View extension `.formBindFocus(_:on:)` builds a modified view without crashing")
@@ -320,7 +338,7 @@ struct FormBindFocusViewModifierTests {
     @Test("syncControllerFocus writes a new value into controller.focus")
     func syncControllerFocusWritesNewValue() {
         let controller = FormController(form: VMForm())
-        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: \VMForm.name)
+        FormBindFocusSupport.syncControllerFocus(controller, to: \VMForm.name)
         #expect(controller.focus == \VMForm.name)
     }
 
@@ -328,7 +346,7 @@ struct FormBindFocusViewModifierTests {
     func syncControllerFocusNoOpWhenEqual() {
         let controller = FormController(form: VMForm())
         controller.focus = \VMForm.email
-        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: \VMForm.email)
+        FormBindFocusSupport.syncControllerFocus(controller, to: \VMForm.email)
         #expect(controller.focus == \VMForm.email)
     }
 
@@ -336,7 +354,7 @@ struct FormBindFocusViewModifierTests {
     func syncControllerFocusClears() {
         let controller = FormController(form: VMForm())
         controller.focus = \VMForm.email
-        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: nil)
+        FormBindFocusSupport.syncControllerFocus(controller, to: nil)
         #expect(controller.focus == nil)
     }
 }
@@ -406,7 +424,7 @@ struct FocusedOnFocusableHost: View {
 }
 
 @MainActor
-@Suite("FocusedOnViewModifier", .serialized)
+@Suite("focused(on:equals:)", .serialized)
 struct FocusedOnViewModifierTests {
 
     @Test("View extension `.focused(on:equals:)` builds a modified view without crashing")

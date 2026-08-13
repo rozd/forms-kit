@@ -1,0 +1,7 @@
+# Skip (https://skip.dev) configuration for the FormsKitSwiftUI shim module.
+#
+# Natively-compiled Skip Fuse module, like FormsKit itself. Pure re-export
+# shim (see FormsKitSwiftUI.swift); nothing here needs a Kotlin-facing API.
+skip:
+  mode: 'native'
+  bridging: false

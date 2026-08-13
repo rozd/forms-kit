@@ -1,3 +1,4 @@
+// SKIP @nobridge
 @propertyWrapper
 public struct Validated<T: Equatable> {
 
