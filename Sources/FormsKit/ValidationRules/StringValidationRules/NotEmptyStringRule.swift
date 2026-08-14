@@ -1,3 +1,4 @@
+// SKIP @nobridge
 public struct NotEmptyStringRule: StringValidationRule {
     let message: String
 
@@ -9,6 +10,9 @@ public struct NotEmptyStringRule: StringValidationRule {
     }
 }
 
+// Kotlin companion objects cannot express static members added via
+// generically-constrained extensions; these factories are Swift-only sugar.
+// SKIP @nobridge
 public extension ValidationRule where Self == NotEmptyStringRule {
     static func isNotEmpty(message: String) -> NotEmptyStringRule {
         NotEmptyStringRule(message: message)

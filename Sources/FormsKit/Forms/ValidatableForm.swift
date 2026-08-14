@@ -1,3 +1,4 @@
+// SKIP @nobridge
 public protocol ValidatableForm {
     var validatedFields: [ValidatedField<Self>] { get }
 }

@@ -1,3 +1,4 @@
+// SKIP @nobridge
 public struct ValidatedField<Form> {
     public let keyPath: PartialKeyPath<Form>
 

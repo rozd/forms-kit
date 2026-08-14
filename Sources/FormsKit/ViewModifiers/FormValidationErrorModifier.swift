@@ -1,27 +1,26 @@
+// `SKIP` covers the skipstone bridge generator (which parses with SKIP defined
+// and SKIP_BRIDGE undefined); `SKIP_BRIDGE` covers the two real bridge compiles
+// (Android cross-compile, Robolectric host). Apple builds take the else branch.
+#if SKIP || SKIP_BRIDGE
+import SkipSwiftUI
+#else
 import SwiftUI
+#endif
 
-public struct FormValidationErrorModifier<T: Equatable>: ViewModifier {
-
-    let state: Validated<T>.State
-
+// Non-generic on every platform (the generic `Validated<T>.State` is unpacked
+// into plain `[String]?` at the call site), so a single bridged modifier
+// serves both. Must NOT carry `// SKIP @nobridge` — the generated Kotlin peer
+// is what makes the modifier apply on Android.
+public struct FormValidationErrorModifier: ViewModifier {
+    let errorMessages: [String]?
     let alignment: HorizontalAlignment
     let spacing: CGFloat?
-
-    init(
-        state: Validated<T>.State,
-        alignment: HorizontalAlignment = .leading,
-        spacing: CGFloat? = 4
-    ) {
-        self.state = state
-        self.alignment = alignment
-        self.spacing = spacing
-    }
 
     public func body(content: Content) -> some View {
         VStack(alignment: alignment, spacing: spacing) {
             content
-            if case let .invalid(messages) = state {
-                ForEach(messages, id: \.self) { message in
+            if let errorMessages {
+                ForEach(errorMessages, id: \.self) { message in
                     Text(message)
                         .foregroundStyle(.red)
                         .font(.caption)
@@ -33,6 +32,7 @@ public struct FormValidationErrorModifier<T: Equatable>: ViewModifier {
 
 // MARK: - View Extension
 
+// SKIP @nobridge
 public extension View {
 
     func formValidationError<T: Equatable>(
@@ -40,12 +40,16 @@ public extension View {
         alignment: HorizontalAlignment = .leading,
         spacing: CGFloat? = 4
     ) -> some View {
-        modifier(
-            FormValidationErrorModifier<T>(
-                state: state,
-                alignment: alignment,
-                spacing: spacing
-            )
-        )
+        let errorMessages: [String]?
+        if case let .invalid(messages) = state {
+            errorMessages = messages
+        } else {
+            errorMessages = nil
+        }
+        return modifier(FormValidationErrorModifier(
+            errorMessages: errorMessages,
+            alignment: alignment,
+            spacing: spacing
+        ))
     }
 }

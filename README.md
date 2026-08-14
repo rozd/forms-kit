@@ -1,5 +1,5 @@
 # FormsKit
-[![Platforms](https://img.shields.io/badge/Platforms-iOS_|_macOS_|_watchOS_|_tvOS_|_visionOS-blue.svg)](https://developer.apple.com/xcode/)
+[![Platforms](https://img.shields.io/badge/Platforms-iOS_|_macOS_|_watchOS_|_tvOS_|_visionOS_|_Android_(Skip)-blue.svg)](https://developer.apple.com/xcode/)
 [![Swift 6.3](https://img.shields.io/badge/Swift-6.3-orange.svg)](https://swift.org)
 [![Release](https://img.shields.io/github/v/release/rozd/forms-kit)](https://github.com/rozd/forms-kit/releases)
 [![codecov](https://codecov.io/gh/rozd/forms-kit/branch/main/graph/badge.svg)](https://codecov.io/gh/rozd/forms-kit)
@@ -35,7 +35,8 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
 - 🧰 **Built-in string rules** — `isNotEmpty`, `minLength`, `maxLength`, `pattern`, `email`.
 - 🎨 **SwiftUI modifiers** — `.formValidationError(for:)` for inline field errors, `.formToolbar(...)` for a Cancel/Submit toolbar, `.focused(on:equals:)` and `.formBindFocus(_:on:)` for focus traversal.
 - 🛡️ **Dirty-state-aware dismiss** — discard confirmation dialog + `interactiveDismissDisabled` when the form has unsaved changes.
-- 🪶 **Zero dependencies** — Foundation + SwiftUI + Observation. No Combine, no third-party packages.
+- 🪶 **Zero runtime dependencies** — Foundation + SwiftUI + Observation. No Combine. The only external packages are [Skip](https://skip.dev)'s build-time integration for Android, and resolving with `SKIP_ZERO=1` strips even those (see [Android (Skip)](#android-skip)).
+- 🤖 **Android via [Skip](https://skip.dev)** — compiles natively for Android as a Skip Fuse module; the same `@Validated` forms and modifiers drive Jetpack Compose through SkipFuseUI.
 - ⚡ **`@Observable` native** — built for iOS 17+ / Swift 5.9+ macros, not `ObservableObject`.
 - 🔒 **Swift 6 concurrency** — explicit `@MainActor` isolation on the form lifecycle, no `Sendable` headaches for consumers.
 
@@ -46,6 +47,7 @@ struct CreatePlanForm: ValidatableForm, SubmittableForm {
 - Swift 6.0+ (built with tools 6.3, language mode v6)
 - iOS 17 / macOS 14 / tvOS 17 / watchOS 10 / visionOS 1
 - Xcode 16+
+- Android: via [Skip](https://skip.dev) 1.9.5+ (optional — see [Android (Skip)](#android-skip))
 
 ## Installation
 
@@ -63,6 +65,31 @@ targets: [
 ```
 
 Or in Xcode: **File → Add Package Dependencies…** and paste the repository URL.
+
+## Android (Skip)
+
+FormsKit is a [Skip](https://skip.dev) **Fuse (native) framework**: the Swift source — including the `@Validated` property wrapper and the `KeyPath`-driven focus system — is compiled natively for Android with the Swift SDK for Android, and the SwiftUI modifiers render through [SkipFuseUI](https://github.com/skiptools/skip-fuse-ui) → Jetpack Compose. (Skip's *transpiled* mode is not supported: its Swift-to-Kotlin transpiler handles neither custom property wrappers nor key paths, both of which are the heart of this library.)
+
+**In a Skip app**, add FormsKit as an ordinary dependency of your Fuse module — no extra configuration; Skip detects the module's `Skip/skip.yml` and wires the Gradle side automatically:
+
+```swift
+.target(name: "MyApp", dependencies: [
+    .product(name: "SkipFuseUI", package: "skip-fuse-ui"),
+    .product(name: "FormsKit", package: "forms-kit"),
+], plugins: [.plugin(name: "skipstone", package: "skip")])
+```
+
+**In an Apple-only project**, nothing changes at the call site, and the Skip packages are build-time-only (on Apple platforms `SkipFuseUI` simply re-exports SwiftUI and compiles away). If you don't want them in your dependency graph at all, resolve with the `SKIP_ZERO` environment variable set — the manifest then strips the Skip plugin and every Skip dependency, restoring a zero-dependency package:
+
+```bash
+SKIP_ZERO=1 swift build
+```
+
+Platform notes:
+
+- The view modifiers are implemented as custom `ViewModifier`s with a twist: skip-bridge cannot represent generic types, so on Android the generic modifiers are swapped for non-generic, type-erased twins that skipstone bridges into Kotlin peers (an *unbridged* custom `ViewModifier` renders as a silent no-op on Android). `.formToolbar`, `.formValidationError`, and `.focused(on:equals:)` render identically on both platforms.
+- `.formBindFocus(_:on:)` relies on an optional-valued `@FocusState`, which SkipUI does not fully support yet — prefer `.focused(on:equals:)` (internally `Bool`-based) in cross-platform forms.
+- The view-modifier test suite runs on Apple platforms only (it hosts views via `ImageRenderer`/`HostingController`, which don't exist on Android); all validation, controller, and focus-logic tests run on both platforms.
 
 ---
 
@@ -568,7 +595,7 @@ FormsKit ships an **agent skill** at [`Skills/formskit-expert/`](Skills/formskit
 ## Roadmap
 
 - Localized default error messages via `String(localized:bundle: .module)`.
-- Themeable error color on `FormValidationErrorModifier` (currently hardcoded `.red`).
+- Themeable error color on `formValidationError` (currently hardcoded `.red`).
 - Localizable strings in `FormToolbarViewModifier` ("Discard Changes?", etc.).
 - Additional rule families (`Number`, `Date`, `Collection`).
 
