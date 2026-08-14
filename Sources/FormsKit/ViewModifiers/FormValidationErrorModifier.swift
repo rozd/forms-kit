@@ -1,7 +1,11 @@
-// FormsKitSwiftUI re-exports real SwiftUI, or SkipSwiftUI in Skip bridge
-// builds. The import must stay unconditional: the bridge generator mirrors it
-// into the generated *_Bridge.swift files. See FormsKitSwiftUI.swift.
-import FormsKitSwiftUI
+// `SKIP` covers the skipstone bridge generator (which parses with SKIP defined
+// and SKIP_BRIDGE undefined); `SKIP_BRIDGE` covers the two real bridge compiles
+// (Android cross-compile, Robolectric host). Apple builds take the else branch.
+#if SKIP || SKIP_BRIDGE
+import SkipSwiftUI
+#else
+import SwiftUI
+#endif
 
 // Non-generic on every platform (the generic `Validated<T>.State` is unpacked
 // into plain `[String]?` at the call site), so a single bridged modifier
