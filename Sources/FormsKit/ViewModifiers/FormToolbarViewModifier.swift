@@ -129,7 +129,7 @@ public extension View {
         preventsAccidentalDismiss: Bool = true,
         onSubmit: @escaping () -> Void
     ) -> some View {
-        #if SKIP_BRIDGE
+        #if SKIP || SKIP_BRIDGE
         return modifier(ErasedFormToolbarModifier(
             controller: AnyFormController(controller),
             cancelTitle: cancelTitle,

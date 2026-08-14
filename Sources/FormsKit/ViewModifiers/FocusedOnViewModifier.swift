@@ -90,7 +90,7 @@ public extension View {
         on controller: Binding<FormController<T>>,
         equals keyPath: KeyPath<T, V>
     ) -> some View {
-        #if SKIP_BRIDGE
+        #if SKIP || SKIP_BRIDGE
         return modifier(ErasedFocusedOnModifier(
             controller: AnyFormController(focusing: controller.wrappedValue),
             fieldKeyPath: keyPath
