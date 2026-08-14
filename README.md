@@ -87,7 +87,7 @@ SKIP_ZERO=1 swift build
 
 Platform notes:
 
-- The view modifiers are deliberately *not* implemented as custom `ViewModifier`s — on Android, SkipSwiftUI renders a custom `ViewModifier` as a silent no-op. They are built from wrapper views and direct composition instead, so `.formToolbar`, `.formValidationError`, and `.focused(on:equals:)` render identically on both platforms.
+- The view modifiers are implemented as custom `ViewModifier`s with a twist: skip-bridge cannot represent generic types, so on Android the generic modifiers are swapped for non-generic, type-erased twins that skipstone bridges into Kotlin peers (an *unbridged* custom `ViewModifier` renders as a silent no-op on Android). `.formToolbar`, `.formValidationError`, and `.focused(on:equals:)` render identically on both platforms.
 - `.formBindFocus(_:on:)` relies on an optional-valued `@FocusState`, which SkipUI does not fully support yet — prefer `.focused(on:equals:)` (internally `Bool`-based) in cross-platform forms.
 - The view-modifier test suite runs on Apple platforms only (it hosts views via `ImageRenderer`/`HostingController`, which don't exist on Android); all validation, controller, and focus-logic tests run on both platforms.
 
@@ -596,7 +596,7 @@ FormsKit ships an **agent skill** at [`Skills/formskit-expert/`](Skills/formskit
 
 - Localized default error messages via `String(localized:bundle: .module)`.
 - Themeable error color on `formValidationError` (currently hardcoded `.red`).
-- Localizable strings in `FormToolbarView` ("Discard Changes?", etc.).
+- Localizable strings in `FormToolbarViewModifier` ("Discard Changes?", etc.).
 - Additional rule families (`Number`, `Date`, `Collection`).
 
 ## License

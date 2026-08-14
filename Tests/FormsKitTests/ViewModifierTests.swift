@@ -84,10 +84,10 @@ struct FormValidationErrorModifierTests {
     }
 }
 
-// MARK: - FormToolbarView
+// MARK: - FormToolbarViewModifier
 
 @MainActor
-@Suite("FormToolbarView")
+@Suite("FormToolbarViewModifier")
 struct FormToolbarViewModifierTests {
 
     @Test("View extension `.formToolbar(...)` builds a modified view for a dirty form")
@@ -141,14 +141,11 @@ struct FormToolbarViewModifierTests {
     @Test("cancelTapped on a clean form invokes dismiss (no warning shown)")
     func cancelTappedCleanDismisses() {
         let controller = FormController(form: VMForm())
-        let modifier = FormToolbarView(
-            content: AnyView(Text("body")),
+        let modifier = FormToolbarViewModifier(
+            controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
-            isDirty: { controller.isDirty },
-            isLoading: { controller.isLoading },
-            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         // Form is clean → guard is false → falls through to dismiss().
@@ -160,14 +157,11 @@ struct FormToolbarViewModifierTests {
     func cancelTappedDirtyShowsWarning() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarView(
-            content: AnyView(Text("body")),
+        let modifier = FormToolbarViewModifier(
+            controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
-            isDirty: { controller.isDirty },
-            isLoading: { controller.isLoading },
-            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         modifier.cancelTapped()
@@ -180,14 +174,11 @@ struct FormToolbarViewModifierTests {
     func cancelTappedNoPreventDismissesWhenDirty() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarView(
-            content: AnyView(Text("body")),
+        let modifier = FormToolbarViewModifier(
+            controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: false,
-            isDirty: { controller.isDirty },
-            isLoading: { controller.isLoading },
-            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { Issue.record("onSubmit should not fire for cancel") }
         )
         // preventsAccidentalDismiss=false short-circuits the &&; falls to dismiss().
@@ -202,14 +193,11 @@ struct FormToolbarViewModifierTests {
         controller.form.name = "Alice"
         controller.form.email = "alice@example.com"
         var didSubmit = false
-        let modifier = FormToolbarView(
-            content: AnyView(Text("body")),
+        let modifier = FormToolbarViewModifier(
+            controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
-            isDirty: { controller.isDirty },
-            isLoading: { controller.isLoading },
-            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { didSubmit = true }
         )
         modifier.submitTapped()
@@ -222,20 +210,95 @@ struct FormToolbarViewModifierTests {
         let controller = FormController(form: VMForm())
         // Both fields empty → invalid after validate().
         var didSubmit = false
-        let modifier = FormToolbarView(
-            content: AnyView(Text("body")),
+        let modifier = FormToolbarViewModifier(
+            controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
             preventsAccidentalDismiss: true,
-            isDirty: { controller.isDirty },
-            isLoading: { controller.isLoading },
-            validateReturningIsValid: { controller.validate(); return controller.form.isValid },
             onSubmit: { didSubmit = true }
         )
         modifier.submitTapped()
         #expect(didSubmit == false)
         // validate() ran — both fields are now in .invalid state.
         #expect(controller.form.isValid == false)
+    }
+
+    // MARK: ErasedFormToolbarModifier (the variant Android actually runs)
+
+    @Test("Erased twin: cancelTapped on a clean form invokes dismiss")
+    func erasedCancelTappedCleanDismisses() {
+        let controller = FormController(form: VMForm())
+        let modifier = ErasedFormToolbarModifier(
+            controller: AnyFormController(controller),
+            cancelTitle: "Cancel",
+            submitTitle: "Submit",
+            preventsAccidentalDismiss: true,
+            onSubmit: { Issue.record("onSubmit should not fire for cancel") }
+        )
+        modifier.cancelTapped()
+    }
+
+    @Test("Erased twin: cancelTapped on a dirty form takes the warning branch")
+    func erasedCancelTappedDirtyShowsWarning() {
+        let controller = FormController(form: VMForm())
+        controller.form.name = "edited"
+        let modifier = ErasedFormToolbarModifier(
+            controller: AnyFormController(controller),
+            cancelTitle: "Cancel",
+            submitTitle: "Submit",
+            preventsAccidentalDismiss: true,
+            onSubmit: { Issue.record("onSubmit should not fire for cancel") }
+        )
+        modifier.cancelTapped()
+    }
+
+    @Test("Erased twin: submitTapped with valid form runs validate() then onSubmit")
+    func erasedSubmitTappedValidCallsOnSubmit() {
+        let controller = FormController(form: VMForm())
+        controller.form.name = "Alice"
+        controller.form.email = "alice@example.com"
+        var didSubmit = false
+        let modifier = ErasedFormToolbarModifier(
+            controller: AnyFormController(controller),
+            cancelTitle: "Cancel",
+            submitTitle: "Submit",
+            preventsAccidentalDismiss: true,
+            onSubmit: { didSubmit = true }
+        )
+        modifier.submitTapped()
+        #expect(didSubmit == true)
+        #expect(controller.form.isValid == true)
+    }
+
+    @Test("Erased twin: submitTapped with invalid form runs validate() but skips onSubmit")
+    func erasedSubmitTappedInvalidSkipsOnSubmit() {
+        let controller = FormController(form: VMForm())
+        var didSubmit = false
+        let modifier = ErasedFormToolbarModifier(
+            controller: AnyFormController(controller),
+            cancelTitle: "Cancel",
+            submitTitle: "Submit",
+            preventsAccidentalDismiss: true,
+            onSubmit: { didSubmit = true }
+        )
+        modifier.submitTapped()
+        #expect(didSubmit == false)
+        #expect(controller.form.isValid == false)
+    }
+
+    @Test("AnyFormController(focusing:) reads and writes controller.focus; validation stubs are inert")
+    func anyFormControllerFocusingErasure() {
+        let controller = FormController(form: VMForm())
+        let erased = AnyFormController(focusing: controller)
+        #expect(erased.getFocus() == nil)
+        erased.setFocus(\VMForm.name)
+        #expect(controller.focus == \VMForm.name)
+        #expect(erased.getFocus() == \VMForm.name)
+        erased.setFocus(nil)
+        #expect(controller.focus == nil)
+        #expect(erased.validateReturningIsValid() == false)
+        #expect(erased.isDirty() == false)
+        #expect(erased.isLoading() == false)
     }
 }
 
@@ -333,30 +396,6 @@ struct FormBindFocusViewModifierTests {
         // SwiftUI focus-system assertion, not a FormsKit one.
     }
 
-    // MARK: syncControllerFocus (deterministic)
-
-    @Test("syncControllerFocus writes a new value into controller.focus")
-    func syncControllerFocusWritesNewValue() {
-        let controller = FormController(form: VMForm())
-        FormBindFocusSupport.syncControllerFocus(controller, to: \VMForm.name)
-        #expect(controller.focus == \VMForm.name)
-    }
-
-    @Test("syncControllerFocus is a no-op when the controller is already there")
-    func syncControllerFocusNoOpWhenEqual() {
-        let controller = FormController(form: VMForm())
-        controller.focus = \VMForm.email
-        FormBindFocusSupport.syncControllerFocus(controller, to: \VMForm.email)
-        #expect(controller.focus == \VMForm.email)
-    }
-
-    @Test("syncControllerFocus clears controller.focus when handed nil")
-    func syncControllerFocusClears() {
-        let controller = FormController(form: VMForm())
-        controller.focus = \VMForm.email
-        FormBindFocusSupport.syncControllerFocus(controller, to: nil)
-        #expect(controller.focus == nil)
-    }
 }
 
 // MARK: - FocusedOnViewModifier

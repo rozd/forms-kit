@@ -147,6 +147,7 @@ Sources/FormsKit/
 ├── Forms/{ValidatableForm,SubmittableForm,PopulatableForm}.swift
 ├── ValidationRules/StringValidationRule.swift
 ├── ValidationRules/StringValidationRules/*.swift
-└── ViewModifiers/{FormValidationError,FormToolbarView,FocusedOnView,FormBindFocus}.swift
+├── AnyFormController.swift   # internal erased facade for the bridged (Android) modifier twins
+└── ViewModifiers/{FormValidationErrorModifier,FormToolbarViewModifier,FocusedOnViewModifier,FormBindFocus}.swift
 Sources/FormsKitSwiftUI/FormsKitSwiftUI.swift   # internal shim for Skip bridge builds
 ```

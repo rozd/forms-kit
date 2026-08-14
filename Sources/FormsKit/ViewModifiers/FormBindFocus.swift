@@ -3,20 +3,6 @@
 // into the generated *_Bridge.swift files. See FormsKitSwiftUI.swift.
 import FormsKitSwiftUI
 
-// MARK: - FormBindFocusSupport
-
-internal enum FormBindFocusSupport {
-    @MainActor
-    static func syncControllerFocus<T>(
-        _ controller: FormController<T>,
-        to new: PartialKeyPath<T>?
-    ) {
-        if controller.focus != new {
-            controller.focus = new
-        }
-    }
-}
-
 // MARK: - View Extension
 
 // SKIP @nobridge
@@ -28,7 +14,9 @@ public extension View {
     ) -> some View {
         self
             .onChange(of: focus.wrappedValue) { _, new in
-                FormBindFocusSupport.syncControllerFocus(controller, to: new)
+                if controller.focus != new {
+                    controller.focus = new
+                }
             }
             .onChange(of: controller.focus) { _, new in
                 guard focus.wrappedValue != new else { return }
