@@ -149,5 +149,7 @@ Sources/FormsKit/
 ├── ValidationRules/StringValidationRules/*.swift
 ├── AnyFormController.swift   # internal erased facade for the bridged (Android) modifier twins
 └── ViewModifiers/{FormValidationErrorModifier,FormToolbarViewModifier,FocusedOnViewModifier,FormBindFocus}.swift
-Sources/FormsKitSwiftUI/FormsKitSwiftUI.swift   # internal shim for Skip bridge builds
 ```
+
+Single target. View files select their SwiftUI module inline —
+`#if SKIP || SKIP_BRIDGE` → `import SkipSwiftUI`, else `import SwiftUI`.
