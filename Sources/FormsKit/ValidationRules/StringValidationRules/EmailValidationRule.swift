@@ -1,6 +1,5 @@
 import Foundation
 
-// SKIP @nobridge
 public struct EmailValidator: StringValidationRule {
     let message: String
 
@@ -17,9 +16,6 @@ public struct EmailValidator: StringValidationRule {
     }
 }
 
-// Kotlin companion objects cannot express static members added via
-// generically-constrained extensions; these factories are Swift-only sugar.
-// SKIP @nobridge
 public extension ValidationRule where Self == EmailValidator {
     static func email(message: String = "Invalid email address") -> EmailValidator {
         EmailValidator(message)
