@@ -1,12 +1,3 @@
-// These tests drive the modifiers through real SwiftUI hosts
-// (ImageRenderer / NS-/UIHostingController), which don't exist on Android —
-// and in bridge builds (SKIP_BRIDGE: the Android cross-compile and the
-// Robolectric host build) FormsKit's views are SkipSwiftUI-typed, so real
-// SwiftUI hosting doesn't apply there either. On Android (Skip Fuse) the
-// modifiers are exercised by consumers' own UI tests instead; the library's
-// logic tests all run on both platforms.
-#if !os(Android) && !SKIP_BRIDGE
-
 import Testing
 import SwiftUI
 @testable import FormsKit
@@ -19,7 +10,7 @@ import UIKit
 
 // MARK: - Fixtures
 
-struct VMForm: ValidatableForm, SubmittableForm {
+private struct VMForm: ValidatableForm, SubmittableForm {
     @Validated(name: "name", .isNotEmpty(message: "Required"))
     var name: String = ""
 
@@ -35,10 +26,10 @@ struct VMForm: ValidatableForm, SubmittableForm {
     func submit() async throws -> String { name }
 }
 
-// MARK: - formValidationError
+// MARK: - FormValidationErrorModifier
 
 @MainActor
-@Suite("formValidationError")
+@Suite("FormValidationErrorModifier")
 struct FormValidationErrorModifierTests {
 
     @Test("View extension `.formValidationError(for:)` builds a modified view — .idle branch")
@@ -141,7 +132,7 @@ struct FormToolbarViewModifierTests {
     @Test("cancelTapped on a clean form invokes dismiss (no warning shown)")
     func cancelTappedCleanDismisses() {
         let controller = FormController(form: VMForm())
-        let modifier = FormToolbarViewModifier(
+        let modifier = FormToolbarViewModifier<VMForm>(
             controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
@@ -157,7 +148,7 @@ struct FormToolbarViewModifierTests {
     func cancelTappedDirtyShowsWarning() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarViewModifier(
+        let modifier = FormToolbarViewModifier<VMForm>(
             controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
@@ -174,7 +165,7 @@ struct FormToolbarViewModifierTests {
     func cancelTappedNoPreventDismissesWhenDirty() {
         let controller = FormController(form: VMForm())
         controller.form.name = "edited"
-        let modifier = FormToolbarViewModifier(
+        let modifier = FormToolbarViewModifier<VMForm>(
             controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
@@ -193,7 +184,7 @@ struct FormToolbarViewModifierTests {
         controller.form.name = "Alice"
         controller.form.email = "alice@example.com"
         var didSubmit = false
-        let modifier = FormToolbarViewModifier(
+        let modifier = FormToolbarViewModifier<VMForm>(
             controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
@@ -210,7 +201,7 @@ struct FormToolbarViewModifierTests {
         let controller = FormController(form: VMForm())
         // Both fields empty → invalid after validate().
         var didSubmit = false
-        let modifier = FormToolbarViewModifier(
+        let modifier = FormToolbarViewModifier<VMForm>(
             controller: controller,
             cancelTitle: "Cancel",
             submitTitle: "Submit",
@@ -222,172 +213,12 @@ struct FormToolbarViewModifierTests {
         // validate() ran — both fields are now in .invalid state.
         #expect(controller.form.isValid == false)
     }
-
-    // MARK: ErasedFormToolbarModifier (the variant Android actually runs)
-
-    @Test("Erased twin: cancelTapped on a clean form invokes dismiss")
-    func erasedCancelTappedCleanDismisses() {
-        let controller = FormController(form: VMForm())
-        let modifier = ErasedFormToolbarModifier(
-            controller: AnyFormController(controller),
-            cancelTitle: "Cancel",
-            submitTitle: "Submit",
-            preventsAccidentalDismiss: true,
-            onSubmit: { Issue.record("onSubmit should not fire for cancel") }
-        )
-        modifier.cancelTapped()
-    }
-
-    @Test("Erased twin: cancelTapped on a dirty form takes the warning branch")
-    func erasedCancelTappedDirtyShowsWarning() {
-        let controller = FormController(form: VMForm())
-        controller.form.name = "edited"
-        let modifier = ErasedFormToolbarModifier(
-            controller: AnyFormController(controller),
-            cancelTitle: "Cancel",
-            submitTitle: "Submit",
-            preventsAccidentalDismiss: true,
-            onSubmit: { Issue.record("onSubmit should not fire for cancel") }
-        )
-        modifier.cancelTapped()
-    }
-
-    @Test("Erased twin: submitTapped with valid form runs validate() then onSubmit")
-    func erasedSubmitTappedValidCallsOnSubmit() {
-        let controller = FormController(form: VMForm())
-        controller.form.name = "Alice"
-        controller.form.email = "alice@example.com"
-        var didSubmit = false
-        let modifier = ErasedFormToolbarModifier(
-            controller: AnyFormController(controller),
-            cancelTitle: "Cancel",
-            submitTitle: "Submit",
-            preventsAccidentalDismiss: true,
-            onSubmit: { didSubmit = true }
-        )
-        modifier.submitTapped()
-        #expect(didSubmit == true)
-        #expect(controller.form.isValid == true)
-    }
-
-    @Test("Erased twin: submitTapped with invalid form runs validate() but skips onSubmit")
-    func erasedSubmitTappedInvalidSkipsOnSubmit() {
-        let controller = FormController(form: VMForm())
-        var didSubmit = false
-        let modifier = ErasedFormToolbarModifier(
-            controller: AnyFormController(controller),
-            cancelTitle: "Cancel",
-            submitTitle: "Submit",
-            preventsAccidentalDismiss: true,
-            onSubmit: { didSubmit = true }
-        )
-        modifier.submitTapped()
-        #expect(didSubmit == false)
-        #expect(controller.form.isValid == false)
-    }
-
-    @Test("Erased twin: cancelTapped with preventsAccidentalDismiss=false dismisses even when dirty")
-    func erasedCancelTappedNoPreventDismissesWhenDirty() {
-        let controller = FormController(form: VMForm())
-        controller.form.name = "edited"
-        let modifier = ErasedFormToolbarModifier(
-            controller: AnyFormController(controller),
-            cancelTitle: "Cancel",
-            submitTitle: "Submit",
-            preventsAccidentalDismiss: false,
-            onSubmit: { Issue.record("onSubmit should not fire for cancel") }
-        )
-        modifier.cancelTapped()
-    }
-
-    @Test("Erased twin: body renders for a dirty form (submit button disabled path)")
-    func erasedBodyRendersDirty() {
-        let controller = FormController(form: VMForm())
-        controller.form.name = "edited"
-        let view = NavigationStack {
-            Text("body").modifier(ErasedFormToolbarModifier(
-                controller: AnyFormController(controller),
-                cancelTitle: "Cancel",
-                submitTitle: "Submit",
-                preventsAccidentalDismiss: true,
-                onSubmit: { }
-            ))
-        }
-        _renderOnce(view)
-    }
-
-    @Test("Erased twin: body renders for a clean form")
-    func erasedBodyRendersClean() {
-        let controller = FormController(form: VMForm())
-        let view = NavigationStack {
-            Text("body").modifier(ErasedFormToolbarModifier(
-                controller: AnyFormController(controller),
-                cancelTitle: "Close",
-                submitTitle: "Create",
-                preventsAccidentalDismiss: false,
-                onSubmit: { }
-            ))
-        }
-        _renderOnce(view)
-    }
-
-    @Test("Erased twin: hosting the toolbar drives the @State property initializer")
-    func erasedBodyHosted() async {
-        // As with the generic variant: `ImageRenderer` doesn't always install
-        // `@State` containers, an `NSHostingController` does — so this is what
-        // fires `showsDiscardWarning`'s default initializer on the erased twin.
-        let controller = FormController(form: VMForm())
-        controller.form.name = "edited"
-        let view = NavigationStack {
-            Text("body").modifier(ErasedFormToolbarModifier(
-                controller: AnyFormController(controller),
-                cancelTitle: "Cancel",
-                submitTitle: "Submit",
-                preventsAccidentalDismiss: true,
-                onSubmit: { }
-            ))
-        }
-        await _withHostedView(view) { /* nothing to mutate */ }
-    }
-
-    @Test("AnyFormController(_:) forwards isDirty / isLoading / validate to the controller")
-    func anyFormControllerFullErasure() {
-        let controller = FormController(form: VMForm())
-        let erased = AnyFormController(controller)
-        #expect(erased.isDirty() == false)
-        #expect(erased.isLoading() == false)
-        controller.form.name = "edited"
-        #expect(erased.isDirty() == true)
-        // Still invalid — `email` is empty.
-        #expect(erased.validateReturningIsValid() == false)
-        controller.form.email = "alice@example.com"
-        #expect(erased.validateReturningIsValid() == true)
-        // Focus round-trips through the same facade the toolbar erasure builds.
-        erased.setFocus(\VMForm.email)
-        #expect(controller.focus == \VMForm.email)
-        #expect(erased.getFocus() == \VMForm.email)
-    }
-
-    @Test("AnyFormController(focusing:) reads and writes controller.focus; validation stubs are inert")
-    func anyFormControllerFocusingErasure() {
-        let controller = FormController(form: VMForm())
-        let erased = AnyFormController(focusing: controller)
-        #expect(erased.getFocus() == nil)
-        erased.setFocus(\VMForm.name)
-        #expect(controller.focus == \VMForm.name)
-        #expect(erased.getFocus() == \VMForm.name)
-        erased.setFocus(nil)
-        #expect(controller.focus == nil)
-        #expect(erased.validateReturningIsValid() == false)
-        #expect(erased.isDirty() == false)
-        #expect(erased.isLoading() == false)
-    }
 }
 
 // MARK: - FormBindFocusViewModifier
 
 /// Hosts the modifier under a real SwiftUI runtime so its `onChange` handlers fire.
-struct FormBindFocusHostView: View {
+private struct FormBindFocusHostView: View {
     let controller: FormController<VMForm>
     @FocusState var focus: PartialKeyPath<VMForm>?
 
@@ -401,7 +232,7 @@ struct FormBindFocusHostView: View {
 /// `onChange(of: focus.wrappedValue)` handler (focus → controller direction)
 /// gets exercised. The fields are real `TextField`s bound to the same
 /// `@FocusState` so SwiftUI can actually grant focus on the write.
-struct FormBindFocusAppearHost: View {
+private struct FormBindFocusAppearHost: View {
     let controller: FormController<VMForm>
     @FocusState var focus: PartialKeyPath<VMForm>?
     let appearAction: (FocusState<PartialKeyPath<VMForm>?>.Binding) -> Void
@@ -424,7 +255,7 @@ struct FormBindFocusAppearHost: View {
 }
 
 @MainActor
-@Suite("formBindFocus", .serialized)
+@Suite("FormBindFocusViewModifier", .serialized)
 struct FormBindFocusViewModifierTests {
 
     @Test("View extension `.formBindFocus(_:on:)` builds a modified view without crashing")
@@ -478,13 +309,37 @@ struct FormBindFocusViewModifierTests {
         // SwiftUI focus-system assertion, not a FormsKit one.
     }
 
+    // MARK: syncControllerFocus (deterministic)
+
+    @Test("syncControllerFocus writes a new value into controller.focus")
+    func syncControllerFocusWritesNewValue() {
+        let controller = FormController(form: VMForm())
+        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: \VMForm.name)
+        #expect(controller.focus == \VMForm.name)
+    }
+
+    @Test("syncControllerFocus is a no-op when the controller is already there")
+    func syncControllerFocusNoOpWhenEqual() {
+        let controller = FormController(form: VMForm())
+        controller.focus = \VMForm.email
+        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: \VMForm.email)
+        #expect(controller.focus == \VMForm.email)
+    }
+
+    @Test("syncControllerFocus clears controller.focus when handed nil")
+    func syncControllerFocusClears() {
+        let controller = FormController(form: VMForm())
+        controller.focus = \VMForm.email
+        FormBindFocusViewModifier<VMForm>.syncControllerFocus(controller, to: nil)
+        #expect(controller.focus == nil)
+    }
 }
 
 // MARK: - FocusedOnViewModifier
 
 /// `.focused(on:equals:)` owns its `@FocusState` internally and takes a
 /// `Binding<FormController<T>>`; the host materialises that binding via `@State`.
-struct FocusedOnHostView: View {
+private struct FocusedOnHostView: View {
     @State var controller: FormController<VMForm>
 
     var body: some View {
@@ -500,7 +355,7 @@ struct FocusedOnHostView: View {
 /// inside `onAppear` causes SwiftUI to grant focus to the chosen field,
 /// which flips the modifier's internal `@FocusState` and exercises the
 /// `onChange(of: isFocused)` handler.
-struct FocusedOnFocusableHost: View {
+private struct FocusedOnFocusableHost: View {
     enum Scenario {
         case setInitial(PartialKeyPath<VMForm>)
         case setThenClear(PartialKeyPath<VMForm>)
@@ -544,81 +399,8 @@ struct FocusedOnFocusableHost: View {
     }
 }
 
-/// Mirror of `FocusedOnHostView` for the erased twin. The public
-/// `.focused(on:equals:)` extension only routes to `ErasedFocusedOnModifier`
-/// under `SKIP_BRIDGE`, so on Apple builds the twin has to be applied by hand
-/// via `.modifier(_:)` — which is also exactly what skipstone's generated
-/// Kotlin peer ends up doing on Android.
-struct ErasedFocusedOnHostView: View {
-    let controller: FormController<VMForm>
-
-    var body: some View {
-        VStack {
-            Text("name field").modifier(ErasedFocusedOnModifier(
-                controller: AnyFormController(focusing: controller),
-                fieldKeyPath: \VMForm.name
-            ))
-            Text("email field").modifier(ErasedFocusedOnModifier(
-                controller: AnyFormController(focusing: controller),
-                fieldKeyPath: \VMForm.email
-            ))
-        }
-    }
-}
-
-/// Erased mirror of `FocusedOnFocusableHost`: real `TextField`s plus a parent
-/// `@FocusState` driver, so SwiftUI actually grants focus and the twin's
-/// `onChange(of: isFocused)` handler fires.
-struct ErasedFocusedOnFocusableHost: View {
-    enum Scenario {
-        case setInitial(PartialKeyPath<VMForm>)
-        case setThenClear(PartialKeyPath<VMForm>)
-        case setThenSwitch(PartialKeyPath<VMForm>, PartialKeyPath<VMForm>)
-    }
-
-    @FocusState var parentFocus: PartialKeyPath<VMForm>?
-    @State var controller: FormController<VMForm>
-    let scenario: Scenario
-
-    var body: some View {
-        VStack {
-            TextField("name", text: $controller.form.name)
-                .focused($parentFocus, equals: \VMForm.name)
-                .modifier(ErasedFocusedOnModifier(
-                    controller: AnyFormController(focusing: controller),
-                    fieldKeyPath: \VMForm.name
-                ))
-            TextField("email", text: $controller.form.email)
-                .focused($parentFocus, equals: \VMForm.email)
-                .modifier(ErasedFocusedOnModifier(
-                    controller: AnyFormController(focusing: controller),
-                    fieldKeyPath: \VMForm.email
-                ))
-        }
-        .onAppear {
-            // Same deferral rationale as `FocusedOnFocusableHost`: writes made
-            // synchronously in `onAppear` race the focus system's wire-up.
-            Task { @MainActor in
-                try? await Task.sleep(nanoseconds: 20_000_000)
-                switch scenario {
-                case .setInitial(let kp):
-                    parentFocus = kp
-                case .setThenClear(let kp):
-                    parentFocus = kp
-                    try? await Task.sleep(nanoseconds: 30_000_000)
-                    parentFocus = nil
-                case .setThenSwitch(let a, let b):
-                    parentFocus = a
-                    try? await Task.sleep(nanoseconds: 30_000_000)
-                    parentFocus = b
-                }
-            }
-        }
-    }
-}
-
 @MainActor
-@Suite("focused(on:equals:)", .serialized)
+@Suite("FocusedOnViewModifier", .serialized)
 struct FocusedOnViewModifierTests {
 
     @Test("View extension `.focused(on:equals:)` builds a modified view without crashing")
@@ -679,78 +461,6 @@ struct FocusedOnViewModifierTests {
     func swiftUIUnfocusClearsController() async {
         let controller = FormController(form: VMForm())
         let host = FocusedOnFocusableHost(
-            controller: controller,
-            scenario: .setThenClear(\VMForm.name)
-        )
-        await _withHostedView(host) { /* mutations happen via deferred Task */ }
-        #expect(controller.focus == nil)
-    }
-
-    // MARK: ErasedFocusedOnModifier (the variant Android actually runs)
-    //
-    // These live in the `focused(on:equals:)` suite rather than a suite of
-    // their own on purpose: SwiftUI's focus system is process-global (one key
-    // window), and `.serialized` only orders tests *within* a suite — sibling
-    // top-level suites still run concurrently, so a second window-hosting
-    // focus suite steals first responder from this one and both flake.
-
-    @Test("Erased twin builds a modified view without crashing")
-    func erasedFocusedOnBuilds() {
-        _renderOnce(ErasedFocusedOnHostView(controller: FormController(form: VMForm())))
-    }
-
-    @Test("Erased twin: setting controller.focus to this field's key path drives the sync handler")
-    func erasedControllerFocusTriggersHandler() async {
-        let controller = FormController(form: VMForm())
-        let host = ErasedFocusedOnHostView(controller: controller)
-        await _withHostedView(host) {
-            controller.focus = \VMForm.name
-        }
-    }
-
-    @Test("Erased twin: setting controller.focus elsewhere triggers the not-mine branch")
-    func erasedControllerFocusOtherKeyPath() async {
-        let controller = FormController(form: VMForm())
-        controller.focus = \VMForm.name
-        let host = ErasedFocusedOnHostView(controller: controller)
-        await _withHostedView(host) {
-            controller.focus = \VMForm.email
-            controller.focus = nil
-        }
-    }
-
-    @Test("Erased twin: SwiftUI focus on a TextField exercises the focus → controller handler")
-    func erasedSwiftUIFocusPropagatesToController() async {
-        let controller = FormController(form: VMForm())
-        let host = ErasedFocusedOnFocusableHost(
-            controller: controller,
-            scenario: .setInitial(\VMForm.name)
-        )
-        await _withHostedView(host) { /* mutation happens via deferred Task */ }
-        // No strict assertion — same reasoning as the generic variant's
-        // `swiftUIFocusPropagatesToController`: whether the first programmatic
-        // focus write lands in a non-key window varies; the setThenSwitch and
-        // setThenClear scenarios below carry the assertions.
-    }
-
-    @Test("Erased twin: switching SwiftUI focus writes the new key path through setFocus")
-    func erasedSwiftUIFocusSwitchUpdatesController() async {
-        let controller = FormController(form: VMForm())
-        let host = ErasedFocusedOnFocusableHost(
-            controller: controller,
-            scenario: .setThenSwitch(\VMForm.name, \VMForm.email)
-        )
-        await _withHostedView(host) { /* mutations happen via deferred Task */ }
-        // Proves the AnyKeyPath → PartialKeyPath<T> downcast inside
-        // `AnyFormController.setFocus` round-trips to a value that still
-        // compares equal to the literal `\VMForm.email` a consumer writes.
-        #expect(controller.focus == \VMForm.email)
-    }
-
-    @Test("Erased twin: clearing SwiftUI focus clears controller.focus (else-if branch)")
-    func erasedSwiftUIUnfocusClearsController() async {
-        let controller = FormController(form: VMForm())
-        let host = ErasedFocusedOnFocusableHost(
             controller: controller,
             scenario: .setThenClear(\VMForm.name)
         )
@@ -825,5 +535,3 @@ private func _spin() async {
         await Task.yield()
     }
 }
-
-#endif

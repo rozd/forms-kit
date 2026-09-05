@@ -1,13 +1,5 @@
 import Observation
-#if canImport(SkipFuse)
-// On Android (Skip Fuse), SkipFuse wires @Observable state tracking into
-// Compose so views re-render when the controller changes. On Apple
-// platforms the import is inert, and it disappears entirely when the
-// package is resolved with SKIP_ZERO=1.
-import SkipFuse
-#endif
 
-// SKIP @nobridge
 @MainActor
 @Observable
 public final class FormController<T> {
@@ -33,7 +25,6 @@ public final class FormController<T> {
 
 // MARK: Controller Extension for Validatable Forms
 
-// SKIP @nobridge
 extension FormController where T: ValidatableForm {
 
     var isDirty: Bool {
@@ -66,7 +57,6 @@ extension FormController where T: ValidatableForm {
 
 // MARK: Controller Extension for Submittable and Validatable Forms
 
-// SKIP @nobridge
 public extension FormController where T: SubmittableForm, T: ValidatableForm {
 
     var isLoading: Bool {

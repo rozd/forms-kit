@@ -1,4 +1,3 @@
-// SKIP @nobridge
 public protocol PopulatableForm {
     associatedtype Data
 
